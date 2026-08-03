@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="de.achimonline.quickjinja.settings.QuickJinjaProjectSettingsState">
+    <option name="settings">
+      <QuickJinjaProjectSettings>
+        <option name="templateFilePath" value="$PROJECT_DIR$/src/gflx/clickhouse/macro/templates/scd2.sql.j2" />
+      </QuickJinjaProjectSettings>
+    </option>
+  </component>
+</project>
