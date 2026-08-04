@@ -77,19 +77,30 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7
 
-    # Run Trivy directly via safe, stable Docker image to cleanly use custom GHCR databases
+    # Run Trivy via Docker and output results into a SARIF file
     - name: Run Trivy vulnerability scanner via Docker
       run: |
         docker run --rm \
         -v ${{ github.workspace }}:/apps \
         aquasec/trivy:0.73.0 \
         fs \
+        --format sarif \
+        --output /apps/trivy-results.sarif \
         --scanners vuln,secret \
         --severity CRITICAL,HIGH \
         --ignore-unfixed \
         --db-repository ghcr.io/gigaflux/trivy-db:2 \
         --java-db-repository ghcr.io/gigaflux/trivy-java-db:1 \
         /apps
+
+    # Upload the SARIF file directly to GitHub Security & Quality tab
+    # if: always() ensures that even if vulnerabilities are found, the report is still uploaded
+    - name: Upload Trivy scan results to GitHub Security
+      if: always()
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: trivy-results.sarif
+        category: trivy-scanner
 
   # Job 3: Verify that package build mechanisms and twine validations pass successfully
   build-check:
