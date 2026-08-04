@@ -26,7 +26,7 @@ jobs:
     steps:
     # Step 1: Fetch the repository source code
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     # Step 2: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     # Use the official Trivy action. It is faster, handles vulnerability DB caching natively,
     # and integrates beautifully with the GitHub UI compared to manual Docker execution.
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v9.0.0
@@ -128,7 +128,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download built packages
         uses: actions/download-artifact@v4
         with:
@@ -151,7 +151,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download built packages
         uses: actions/download-artifact@v4
         with:
