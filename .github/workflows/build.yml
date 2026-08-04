@@ -65,7 +65,7 @@ jobs:
     # Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
     - name: Comment Coverage on PR
       if: always() && github.event_name == 'pull_request' && matrix.python-version == '3.12'
-      uses: MishaKav/pytest-coverage-comment@v1.1.52
+      uses: MishaKav/pytest-coverage-comment@v1.10.1
       with:
         pytest-xml-coverage-path: ./var/coverage.xml
         title: "📊 Code Coverage Report"
