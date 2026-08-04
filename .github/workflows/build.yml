@@ -1,0 +1,163 @@
+name: CI Pipeline
+
+# Trigger the workflow on pushes to the main branch and any pull requests targeting main
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+
+jobs:
+  # Job 1: Run code quality tools and test suites across multiple Python versions
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    strategy:
+      matrix:
+        # Test against all Python versions defined in pyproject.toml constraints
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    # Step 1: Fetch the repository source code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Step 2: Install uv, since the Makefile relies on it for environment synchronization
+    - name: Set up uv
+      uses: astral-sh/setup-uv-action@v5
+      with:
+        enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
+        version: "latest"
+
+    # Step 3: Install the specific Python version required by the current matrix slot
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+
+    # Step 4: Synchronize the virtual environment and install all dependencies via Makefile
+    - name: Sync environment
+      run: make sync
+
+    # Step 5: Execute linters, type-checkers, and spell-checkers via Ruff, Ty, and Codespell
+    - name: Run Linters & Checkers
+      run: make lint
+
+    # Step 6: Run unit tests with code coverage metrics
+    - name: Run Unit Tests
+      run: make test-unit
+
+    # Upload HTML coverage folder and test results report to GitHub Artifacts
+    - name: Upload Test and Coverage Reports Artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports-python-${{ matrix.python-version }}
+        path: |
+          var/htmlcov/
+          var/report.html
+        retention-days: 14
+
+    # Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
+    - name: Comment Coverage on PR
+      if: always() && github.event_name == 'pull_request' && matrix.python-version == '3.12'
+      uses: MishaKav/pytest-coverage-comment@v1.1.52
+      with:
+        pytest-xml-coverage-path: ./var/coverage.xml
+        title: "📊 Code Coverage Report"
+
+  # Job 2: Perform static security analysis for vulnerabilities and leaked secrets
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Use the official Trivy action. It is faster, handles vulnerability DB caching natively,
+    # and integrates beautifully with the GitHub UI compared to manual Docker execution.
+    - name: Run Trivy vulnerability scanner
+      uses: aquasec/trivy-action@v0.28.0
+      with:
+        scan-type: 'fs'
+        scanners: 'vuln,secret'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: true
+        db-repository: ghcr.io/gigaflux/trivy-db:2
+        java-db-repository: ghcr.io/gigaflux/trivy-java-db:1
+
+  # Job 3: Verify that package build mechanisms and twine validations pass successfully
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv-action@v5
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    # Execute the build workflow to ensure distributions can be built and Twine checks pass
+    - name: Test Build Artifacts
+      run: make build
+
+    - name: Upload built packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-packages
+        path: var/dist/
+        if-no-files-found: error
+
+  # Job 4: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
+  publish-testpypi:
+    needs: [ lint-and-test, security-scan, build-check ]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+
+    environment: testpypi
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download built packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-packages
+          path: var/dist/
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: var/dist
+          repository-url: https://test.pypi.org/legacy/
+
+  # Job 5: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  publish-pypi:
+    needs: [ publish-testpypi ] # Запустится ТОЛЬКО после успешной отправки на TestPyPI
+    runs-on: ubuntu-latest
+
+    environment: pypi
+
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download built packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-packages
+          path: var/dist/
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: var/dist
