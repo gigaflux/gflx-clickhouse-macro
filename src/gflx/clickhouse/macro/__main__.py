@@ -14,6 +14,12 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 from gflx.clickhouse.macro.engine import MacroRenderEngine
 
+
+class RichHelpFormatter(RawDescriptionRichHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+    """Rich help formatter."""
+
+    pass
+
 description_text = """
 Render a ClickHouse ETL script with deduplication and SCD2 history tracking
 
@@ -94,7 +100,7 @@ def get_parser() -> ArgumentParser:
     """CLI entry point to render the ClickHouse full ETL macro."""
     parser = argparse.ArgumentParser(
         description=description_text,
-        formatter_class=RawDescriptionRichHelpFormatter,
+        formatter_class=RichHelpFormatter,
         prog="gflx-macro"
     )
     # Required parameters (Positionals or mandatory options)
