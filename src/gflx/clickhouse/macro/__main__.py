@@ -321,7 +321,7 @@ def main(logger: logging.Logger | None = None, log_config: str | dict[str, objec
             sql_stmt.append(stmt_final)
         # Print the final generated SQL script to stdout
         sys.stdout.write(";\n".join(sql_stmt))
-
+        sys.stdout.write(";\n")
 
 if __name__ == "__main__":
     main()
