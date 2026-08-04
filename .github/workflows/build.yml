@@ -77,17 +77,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7
 
-    # Use the official Trivy action. It is faster, handles vulnerability DB caching natively,
-    # and integrates beautifully with the GitHub UI compared to manual Docker execution.
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scanners: 'vuln,secret'
-        severity: 'CRITICAL,HIGH'
-        ignore-unfixed: true
-        db-repository: ghcr.io/gigaflux/trivy-db:2
-        java-db-repository: ghcr.io/gigaflux/trivy-java-db:1
+    # Run Trivy directly via safe, stable Docker image to cleanly use custom GHCR databases
+    - name: Run Trivy vulnerability scanner via Docker
+      run: |
+        docker run --rm \
+        -v ${{ github.workspace }}:/apps \
+        aquasec/trivy:0.73.0 \
+        fs \
+        --scanners vuln,secret \
+        --severity CRITICAL,HIGH \
+        --ignore-unfixed \
+        --db-repository ghcr.io/gigaflux/trivy-db:2 \
+        --java-db-repository ghcr.io/gigaflux/trivy-java-db:1 \
+        /apps
 
   # Job 3: Verify that package build mechanisms and twine validations pass successfully
   build-check:
