@@ -228,7 +228,7 @@ class MacroRenderEngine:
             if not stmt:
                 continue
             # FIX: sqlglot nodes generate SQL via .sql() method on the expression instance
-            stmt_sql = stmt.sql(dialect="clickhouse")
+            stmt_sql = stmt.sql(dialect="clickhouse", pretty=True)
             local_settings: dict[str, str] = {}
             # Find all mask placeholders present inside the current statement
             masks_found = mask_regex.findall(stmt_sql)
