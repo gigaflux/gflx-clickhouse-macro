@@ -57,6 +57,9 @@ dev = [
     "twine>=6.1.0"
 ]
 
+[tool.uv.overrides]
+cryptography = ">=50.0.0"
+
 [project.urls]
 Homepage = "https://github.com/gigaflux/gflx-clickhouse-macro"
 Documentation = "https://github.com/gigaflux/gflx-clickhouse-macro#readme"
