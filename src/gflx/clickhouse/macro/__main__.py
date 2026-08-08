@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS {{ db }}.{{ buf-table }} ON CLUSTER {{ replicated-clu
 ENGINE = Distributed('{{ replicated-cluster }}', '{{ db-local }}', '{{ buf-table }}_local', xxh3({{ sharding-column }});
 """  # noqa: E501
 
-#formatted_description = Text.from_markup(description_text, justify="left")
 
 def _url_default_conn(session_id: str = "") -> str:
     base = "clickhouse://default:@localhost:8443/default?verify=False&secure=True&"

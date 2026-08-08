@@ -57,11 +57,9 @@ class MacroRenderEngine:
 
     def _dbt_return(self, value: object) -> None:
         self._thread_local.last_return_value = value
-        # raise MacroReturnException(value)
 
     def _dbt_get_return(self) -> object:
         return getattr(self._thread_local, "last_return_value", None)
-        #return self.last_return_value
 
     @pass_context
     def _dbt_render(self, context: Context, value: str, **kwargs: str | int | float | bool) -> str:
@@ -82,15 +80,7 @@ class MacroRenderEngine:
             str: The rendered string.
 
         """
-        #if not isinstance(value, str):
-        #    return cast(str, value)
-
         combined_context: dict[str, object] = {}
-        #raw_context: dict[str, object] = context.get_all()
-        #for val in raw_context.values():
-        #    if isinstance(val, dict):
-        #        combined_context.update({str(k): v for k, v in val.items()})
-        #combined_context.update({k: v for k, v in raw_context.items() if isinstance(v, str | int | bool | float) })
         combined_context.update(kwargs)
         return str(context.environment.from_string(value).render(combined_context))
 
@@ -215,7 +205,6 @@ class MacroRenderEngine:
             settings_text = m.group(1)
             settings_storage[counter] = settings_text
             mask = f"/* CH_SETTINGS_MASK_{counter} */"
-            # mask = f"'CH_SETTINGS_MASK_{counter}'"
             counter += 1
             return mask
 
@@ -239,7 +228,6 @@ class MacroRenderEngine:
 
                 # Parse and clean key-value pairs from the stored raw block
                 for k, v in kv_regex.findall(raw_settings_block):
-                    # local_settings[k.strip()] = v.strip().strip("'\"`")
                     local_settings[k.strip()] = v.strip()
 
             # Strip masks and trailing commas left after mask removal
@@ -347,10 +335,6 @@ class MacroRenderEngine:
             rollback_stmts = list(self.explain_macro(template_name, rollback_macro_name, client, rollback_macro_params))
 
         for stmt, _ in stmts:
-            #pattern = r"--[\s]+@echo[\s]+.*"
-            #echo_comments = "\n".join(re.findall(pattern, stmt))
-            #if echo_comments:
-            #    yield echo_comments, ""
             yield stmt, "", 0
             try:
                 result = client.command(stmt)
