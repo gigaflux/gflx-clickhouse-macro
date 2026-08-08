@@ -204,19 +204,11 @@ def test_etl1(engine_macro: MacroRenderEngine,
     if insert_data:
         client.insert(table=f"{db}.{table}_STAGE_BUF", data=insert_data, column_names=column_names)
 
-    #sql = engine_macro.render_macro(template_name="scd2.sql", macro_name="prepare", macro_params=params)
-    #print(sql)
-    #tables = client.query("SELECT distinct database || '.' || name FROM cluster('isreplicated', system.tables) "
-    #                      "WHERE database NOT IN ('INFORMATION_SCHEMA','information_schema', 'system') "
-    #                      "ORDER BY database,name").result_rows
-    #print(tables)
     list(engine_macro.execute_macro(template_name="scd2.sql", macro_name="prepare", client=client,
                                macro_params=params))
     list(engine_macro.execute_macro(template_name="scd2.sql", macro_name="merge", client=client,
                                macro_params=params))
     result = client.query(f"SELECT * FROM {db}.{table} FINAL ORDER BY ID, SNAP_DATE").result_rows
-    #if data_new != result:
-    #    #stage_hash = client.query(f"SELECT * FROM DE_SYSTEM___{db}.{db}___{table}_STAGE_TMP_HASH").result_rows
 
     list(engine_macro.execute_macro(template_name="scd2.sql", macro_name="clean", client=client,
                                macro_params=params))
