@@ -50,9 +50,10 @@ jobs:
   lint:
     needs: [ bump-version ]
     if: |
-      github.event_name != 'release' ||
-      needs.bump-version.result == 'success' ||
-      needs.bump-version.result == 'skipped'
+      always() && (
+        github.event_name != 'release' ||
+        needs.bump-version.result == 'success'
+      )
     runs-on: ubuntu-latest
 
     permissions:
