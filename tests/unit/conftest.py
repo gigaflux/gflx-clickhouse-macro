@@ -33,4 +33,3 @@ def mock_get_client(session_mocker: MockerFixture, client: Client | MagicMock) -
     """Mock get_client for unit tests."""
     session_mocker.patch("clickhouse_connect.get_client", return_value=client)
     return client
-

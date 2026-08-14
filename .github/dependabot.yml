@@ -1,20 +1,69 @@
 version: 2
+
 updates:
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "python"
+
+    groups:
+      prod-core-group:
+        patterns:
+          - "jinja2*"
+          - "typing-extensions*"
+          - "pyyaml*"
+          - "rich-argparse*"
+
+      prod-data-group:
+        patterns:
+          - "sqlglot*"
+          - "clickhouse-connect*"
+
+      dev-lint-group:
+        patterns:
+          - "pre-commit*"
+          - "ruff*"
+          - "ty"
+          - "codespell*"
+          - "mdformat*"
+          - "black*"
+          - "shellcheck*"
+          - "actionlint*"
+          - "mbake*"
+          - "validate-pyproject*"
+          - "check-jsonschema*"
+
+      dev-test-group:
+        patterns:
+          - "pytest*"
+
+      dev-release-group:
+        patterns:
+          - "bumpver*"
+          - "build*"
+          - "twine*"
+
+      dev-scan-group:
+        patterns:
+          - "trivy*"
+
+      default-group:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "github-actions"
+      - "github"
+    groups:
+      github:
+        patterns:
+          - "*"

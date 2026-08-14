@@ -1,0 +1,43 @@
+# trivy.yaml
+# Global configuration file for Trivy file system (fs) scanning.
+
+# --- Vulnerability Filtering ---
+# Defines the minimum severity levels to report.
+severity:
+  - "CRITICAL"
+  - "HIGH"
+
+# Exit code
+exit-code: 1
+
+vulnerability:
+  # Toggles filtering out vulnerabilities that do not have a vendor fix available yet.
+  ignore-unfixed: true
+
+# --- Database & Performance Optimization ---
+# Specifies custom OCI registries for downloading the vulnerability databases.
+db:
+  repository:
+    - "ghcr.io/gigaflux/trivy-db:2"
+
+scan:
+  # Disables the automatic check for Trivy binary updates on startup to speed up execution.
+  skip-version-check: true
+  # --- Scanner Selection ---
+  # Enables specific scanners.
+  # 'vuln' detects package vulnerabilities, 'secret' searches for leaked credentials/tokens.
+  scanners:
+    - "vuln"
+    - "secret"
+    - "misconfig"
+    - "license"
+
+pkg:
+  # --- Language Specific Options ---
+  # Forces Trivy to scan all dependencies, including development and testing groups.
+  include-dev-deps: true
+
+# --- Secret Scanner Configuration ---
+# Points to a dedicated configuration file containing regex patterns and exclusions for secrets.
+secret:
+  config: "trivy-secret.yml"

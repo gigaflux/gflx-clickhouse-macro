@@ -322,10 +322,10 @@ def main(logger: logging.Logger | None = None, log_config: str | dict[str, objec
             macro_name="main",
             macro_params=macro_params)):
             settings_str = ",\n".join([f"{k} = {v}" for k, v in settings.items()])
-            stmt_final = f"{stmt} SETTINGS {settings_str}" if settings_str else stmt
+            stmt_final = f"{stmt} \nSETTINGS\n{settings_str}" if settings_str else stmt
             sql_stmt.append(stmt_final)
         # Print the final generated SQL script to stdout
-        sys.stdout.write(";\n".join(sql_stmt))
+        sys.stdout.write(";\n\n".join(sql_stmt))
         sys.stdout.write(";\n")
 
 if __name__ == "__main__":

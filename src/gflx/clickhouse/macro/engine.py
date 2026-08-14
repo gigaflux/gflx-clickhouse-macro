@@ -276,7 +276,7 @@ class MacroRenderEngine:
         """
         for stmt, settings in list(self.parse_macro(template_name, macro_name, macro_params)):
             settings_str = ",\n".join([f"{k} = {v}" for k, v in settings.items()])
-            stmt_final = f"{stmt} SETTINGS {settings_str}" if settings_str else stmt
+            stmt_final = f"{stmt} \nSETTINGS\n{settings_str}" if settings_str else stmt
             ast_result = client.command(f"EXPLAIN AST {stmt_final}")
             if isinstance(ast_result, Sequence):
                 yield stmt_final, "\n".join(str(item) for item in ast_result)
@@ -348,6 +348,3 @@ class MacroRenderEngine:
                 yield stmt, str(result), 1
             elif isinstance(result, QuerySummary):
                 yield stmt, json.dumps(result.summary, indent=4), 1
-
-
-
