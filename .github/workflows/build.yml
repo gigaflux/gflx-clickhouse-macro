@@ -25,18 +25,15 @@ jobs:
           fetch-depth: 0
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           version: "latest"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Bump version to match GitHub Release Tag
         id: extract-version
+        env:
+          UV_PYTHON: "3.12"
         run: |
           TAG_VERSION="$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
