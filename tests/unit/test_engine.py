@@ -17,24 +17,39 @@ from gflx.clickhouse.macro.engine import MacroRenderEngine
         # Case 1: Empty string column name
         ("create_distributed_table", {"table": "db.TEST", "table_local": "DE_SYSTEM___db.db___TEST_local",
                                       "sharding_column": "ID", "cluster": "cluster"},
-        r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
-        r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID\)\)"),
+         (
+            r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
+            r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID\)\)"
+          )
+         ),
         ("create_distributed_table", {"table": "db.TEST", "table_local": "DE_SYSTEM___db.db___TEST_local",
                                       "sharding_column": "ID1, ID2", "cluster": "cluster"},
-        r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
-        r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID1, ID2\)\)"),
+         (
+            r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
+            r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID1, ID2\)\)"
+         )
+        ),
         ("create_distributed_table", {"table": "TEST", "table_local": "DE_SYSTEM___db.db___TEST_local",
                                       "sharding_column": "ID", "cluster": "cluster"},
-        r"CREATE TABLE IF NOT EXISTS TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
-        r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID\)\)"),
+         (
+            r"CREATE TABLE IF NOT EXISTS TEST ON CLUSTER cluster AS DE_SYSTEM___db\.db___TEST_local\r?\n"
+            r"ENGINE = Distributed\('cluster', 'DE_SYSTEM___db', 'db___TEST_local', xxh3\(ID\)\)"
+         )
+        ),
         ("create_distributed_table", {"table": "db.TEST", "table_local": "db___TEST_local",
                                       "sharding_column": "ID", "cluster": "cluster"},
-        r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS db___TEST_local\r?\n"
-        r"ENGINE = Distributed\('cluster', 'db', 'db___TEST_local', xxh3\(ID\)\)"),
+         (
+            r"CREATE TABLE IF NOT EXISTS db.TEST ON CLUSTER cluster AS db___TEST_local\r?\n"
+            r"ENGINE = Distributed\('cluster', 'db', 'db___TEST_local', xxh3\(ID\)\)"
+         )
+        ),
         ("create_distributed_table", {"table": "TEST", "table_local": "db___TEST_local",
                                       "sharding_column": "ID", "cluster": "cluster"},
-        r"CREATE TABLE IF NOT EXISTS TEST ON CLUSTER cluster AS db___TEST_local\r?\n"
-        r"ENGINE = Distributed\('cluster', 'default', 'db___TEST_local', xxh3\(ID\)\)"),
+         (
+            r"CREATE TABLE IF NOT EXISTS TEST ON CLUSTER cluster AS db___TEST_local\r?\n"
+            r"ENGINE = Distributed\('cluster', 'default', 'db___TEST_local', xxh3\(ID\)\)"
+         )
+        ),
         ("sync_replica", {"table": "TEST", "cluster": "cluster"},
         r"SYSTEM SYNC REPLICA ON CLUSTER cluster TEST"),
         ("drop_table", {"table": "TEST", "cluster": "cluster"},

@@ -62,13 +62,13 @@ class MacroRenderEngine:
         return getattr(self._thread_local, "last_return_value", None)
 
     @pass_context
-    def _dbt_render(self, context: Context, value: str, **kwargs: str | int | float | bool) -> str:
+    def _dbt_render(self, context: Context, value: str, **kwargs: float | bool | str) -> str:
         return self._render_string_global(context, value, **kwargs)
 
     @pass_context
     def _render_string_global(self, context: Context,
                               value: str,
-                              **kwargs: str | int | float | bool) -> str:
+                              **kwargs: float | bool | str) -> str:
         """Jinja2 global function to dynamically render a string template using the current context.
 
         Args:
@@ -338,10 +338,10 @@ class MacroRenderEngine:
             yield stmt, "", 0
             try:
                 result = client.command(stmt)
-            except (ProgrammingError, DatabaseError, OperationalError) as e:
+            except (ProgrammingError, DatabaseError, OperationalError):
                 if rollback_stmts and rollback_macro_name:
                     self.execute_macro(template_name, rollback_macro_name, client, rollback_macro_params)
-                raise e
+                raise
             if isinstance(result, Sequence):
                 yield stmt, "\n".join(str(item) for item in result), 1
             elif isinstance(result, str | int):

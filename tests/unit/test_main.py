@@ -3,7 +3,7 @@ import logging
 import sys
 from argparse import ArgumentParser
 from collections.abc import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from _pytest.capture import CaptureFixture
@@ -12,7 +12,7 @@ from gflx.clickhouse.macro.__main__ import get_parser, main, parse_args, parse_u
 
 
 @pytest.fixture
-def mock_render() -> Generator[MagicMock, None, None]:
+def mock_render() -> Generator[MagicMock | AsyncMock, None, None]:
     """Mock the render_macro method of MacroRenderEngine class."""
     # Path to the CLASS, then the METHOD
     target_path = "gflx.clickhouse.macro.__main__.MacroRenderEngine.render_macro"
@@ -23,7 +23,7 @@ def mock_render() -> Generator[MagicMock, None, None]:
         yield mocked
 
 @pytest.fixture
-def mock_execute() -> Generator[MagicMock, None, None]:
+def mock_execute() -> Generator[MagicMock | AsyncMock, None, None]:
     """Mock the render_macro method of MacroRenderEngine class."""
     # Path to the CLASS, then the METHOD
     target_path = "gflx.clickhouse.macro.__main__.MacroRenderEngine.execute_macro"
