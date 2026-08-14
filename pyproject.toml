@@ -66,6 +66,10 @@ dev-release = [
 dev-scan = [
     "trivy-py>=0.70"
 ]
+# Scan
+dev-scan = [
+    "trivy-py>=0.70"
+]
 
 [tool.uv]
 override-dependencies = [
