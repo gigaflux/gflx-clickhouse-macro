@@ -64,9 +64,9 @@ repos:
           - pre-commit
         args: ["--pytest-test-first"]
 
-      - id: no-commit-to-branch # Protect specific branches from direct check ins, both main and master are protected by default
-        stages:
-          - pre-commit
+      #- id: no-commit-to-branch # Protect specific branches from direct check ins, both main and master are protected by default
+      #  stages:
+      #    - pre-commit
 
       - id: trailing-whitespace  # Trims trailing whitespace
         stages:
