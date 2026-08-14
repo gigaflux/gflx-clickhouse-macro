@@ -30,35 +30,49 @@ dependencies = [
     "jinja2>=3.1.6",
     "typing-extensions>=4.0.0",
     "pyyaml>=6.0.1",
+    "rich-argparse>=1.6.0",
     "sqlglot>=30.12.0,<30.15.0",
-    "clickhouse-connect>=1.0.0",
-    "pyyaml>=6.0.0",
-    "rich-argparse>=1.6.0"
+    "clickhouse-connect>=1.0.0"
 ]
 
 [dependency-groups]
-dev = [
-    # Testing
+# Code Linters, Type Checkers, Spell Checkers, Markdown formatters
+dev-lint = [
+    "pre-commit>=4.5.0",
+    "ty>=0.0.11",
+    "ruff>=0.15.12",
+    "codespell>=2.4.0",
+    "mdformat-gfm>=0.1.1",
+    "shellcheck-py>=0.10.0",
+    "actionlint-py>=1.7.0",
+    "mbake>=1.4.5",
+    "validate-pyproject[all]>=0.24",
+    "check-jsonschema>=0.37.0"
+]
+
+# Test group
+dev-test = [
     "pytest>=9.0.0",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.0",
-    "pytest-html",
+    "pytest-html"
+]
 
-    # Code Linters, Type Checkers
-    "ty>=0.0.11",
-    "ruff>=0.15.12",
-    # Spell Checkers, Markdown formatters
-    "codespell>=2.4.0",
-    "mdformat-gfm>=0.1.1",
-
-    # Build & Release
+# Build & Release
+dev-release = [
     "bumpver>=2023.1121",
     "build>1.3.0",
     "twine>=6.1.0"
 ]
+# Scan
+dev-scan = [
+    "trivy-py>=0.70"
+]
 
-[tool.uv.overrides]
-cryptography = ">=50.0.0"
+[tool.uv]
+override-dependencies = [
+    "cryptography>=50.0.0"
+]
 
 [project.urls]
 Homepage = "https://github.com/gigaflux/gflx-clickhouse-macro"
@@ -106,10 +120,10 @@ addopts = [
     "-vvv",
     "--cov=gflx.clickhouse.macro",
     "--cov-report=term-missing",
-    "--cov-report=xml:var/coverage.xml",
-    "--cov-report=html:var/htmlcov",
-    "--junitxml=var/junit.xml",
-    "--html=var/report.html",
+    "--cov-report=xml:.var/coverage.xml",
+    "--cov-report=html:.var/htmlcov",
+    "--junitxml=.var/junit.xml",
+    "--html=.var/report.html",
     "--self-contained-html",
     "--strict-markers"
 ]
@@ -146,6 +160,13 @@ exclude_lines = [
 [tool.ruff]
 src = ["src"]
 line-length = 120
+exclude = [
+    ".git",
+    ".idea",
+    ".vscode",
+    ".venv",
+    ".var"
+]
 
 [tool.ruff.lint]
 extend-select = [
@@ -171,6 +192,9 @@ section-order = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+docstring-code-format = true
 
 [tool.ruff.lint.per-file-ignores]
 "src/gflx/clickhouse/macro/__init__.py" = [
@@ -190,6 +214,6 @@ indent-style = "space"
 rules.all = "warn"
 
 [tool.codespell]
-skip = "./.git,./.venv,./var,./htmlcov,./.pytest_cache,*.js,.coverage"
+skip = "./.git,./.venv,./.var,./htmlcov,./.pytest_cache,*.js,.coverage"
 check-filenames = true
 check-hidden = false

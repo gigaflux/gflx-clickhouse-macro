@@ -1,19 +1,29 @@
-examples/* linguist-documentation
-docs/* linguist-documentation
-*.ipynb linguist-documentation
-Makefile linguist-documentation
+# Docs, Examples
+{docs/*,examples/*,*.ipynb} linguist-documentation
 
-*.md text=auto eol=lf
-*.py text=auto eol=lf
-*.toml text=auto eol=lf
-*.yaml text=auto eol=lf
-*.sh text eol=crlf
+# Text files
+* text=auto
+*.{md,rst} text eol=lf
+*.{json,yaml,yml,xml,toml,ini} text eol=lf
+*.{sh,bash,py} text eol=lf
+*.{sql,j2,jinja,jinja2} text eol=lf
+*.{txt,csv,tsv,log} text eol=lf
+{Makefile,Dockerfile} text eol=lf
+.{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} text eol=lf
+.pre-commit-*.{yaml,yml} text eol=lf
+uv.lock text eol=lf
 
-.editorconfig export-ignore
-.gitignore export-ignore
-.dockerignore export-ignore
-.cursorignore export-ignore
-.cursorindexingignore export-ignore
-.github/ export-ignore
+# Ignore files while build release archive
+.{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} export-ignore
+.{pre-commit-*,markdownlint,gitpod,readthedocs,hadolint,cherry_picker}.* export-ignore
+.{idea,vscode,var,github,tox,pytest_cache,ruff_cache,mypy_cache,htmlcov}/ export-ignore
+{Makefile,trivy*.yml,uv.lock} export-ignore
+{pytest.ini,tox.ini,conftest.py,coverage.xml,mypy.ini,ruff.toml,.coverage} export-ignore
 tests/ export-ignore
-docs/ export-ignore
+
+# Binary files
+*.{mp4,mkv,mov,avi,webm,mp3,wav,flac,m4a,aac} -text diff=binary merge=binary
+*.{gz,gzip,zip,rar,7z,tar,tgz,bz2,xz,iso} -text diff=binary merge=binary
+*.{a,exe} -text diff=binary merge=binary
+*.{db,sqlite} -text diff=binary merge=binary
+*.{pdf,doc,docx,docm,xls,xlsx,xlsm,xlsb} -text diff=binary merge=binary

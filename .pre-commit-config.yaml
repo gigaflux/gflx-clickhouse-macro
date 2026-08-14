@@ -1,0 +1,205 @@
+
+default_install_hook_types:
+  - pre-commit
+  - post-checkout
+  - post-merge
+  - post-rewrite
+  - pre-push
+
+repos:
+  # Standard system checks and syntax validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files  # Prevents giant binary files from being committed
+        stages:
+          - pre-commit
+
+      - id: check-case-conflict # Check for files with names that would conflict on a case-insensitive filesystem like macOS HFS+ or Windows FAT
+        stages:
+          - pre-commit
+
+      - id: check-executables-have-shebangs # Checks that non-binary executables have a proper shebang.
+        stages:
+          - pre-commit
+
+      - id: check-illegal-windows-names # Check for files that cannot be created on Windows.
+        stages:
+          - pre-commit
+
+      - id: check-json # Attempts to load all JSON files to verify syntax.
+        stages:
+          - pre-commit
+
+      - id: check-merge-conflict # Check for files that contain merge conflict strings.
+        stages:
+          - pre-commit
+
+      - id: check-shebang-scripts-are-executable # Checks that scripts with shebangs are executable.
+        stages:
+          - pre-commit
+
+      - id: check-symlinks # Checks for symlinks which do not point to anything.
+        stages:
+          - pre-commit
+
+      - id: check-toml # Attempts to load all TOML files to verify syntax.
+        stages:
+          - pre-commit
+
+      - id: check-yaml # Attempts to load all YAML files to verify syntax.
+        stages:
+          - pre-commit
+
+      - id: end-of-file-fixer  # Ensures a newline at the end of files
+        stages:
+          - pre-commit
+
+      - id: mixed-line-ending # Replaces or checks mixed line ending.
+        stages:
+          - pre-commit
+
+      - id: name-tests-test # verifies that test files are named correctly.
+        stages:
+          - pre-commit
+        args: ["--pytest-test-first"]
+
+      - id: no-commit-to-branch # Protect specific branches from direct check ins, both main and master are protected by default
+        stages:
+          - pre-commit
+
+      - id: trailing-whitespace  # Trims trailing whitespace
+        stages:
+          - pre-commit
+
+  # uv check and sync
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.3
+    hooks:
+      - id: uv-lock
+        stages:
+          - pre-commit
+
+      - id: uv-sync
+        stages:
+          - post-checkout
+          - post-merge
+          - post-rewrite
+        args: ["--group", "dev-lint", "--group", "dev-test"]
+
+  # Custom hooks
+  - repo: local
+    hooks:
+      - id: ruff-linter
+        name: ruff linter
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint ruff check
+        language: system
+        types: [ python ]
+        pass_filenames: true
+
+      #- id: ruff-format
+      #  name: ruff format
+      #  stages:
+      #    - pre-commit
+      #  entry: uv run --group dev-lint ruff format
+      #  language: system
+      #  types: [ python ]
+      #  pass_filenames: true
+
+      - id: ty-linter
+        name: ty linter
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint ty check
+        language: system
+        types: [ python ]
+        pass_filenames: true
+
+      - id: codespell-linter
+        name: codespell linter
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint codespell
+        language: system
+        types: [ text ]
+        pass_filenames: true
+
+      - id: pyproject-linter
+        name: Pyproject linter (validate-pyproject)
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint validate-pyproject
+        language: system
+        files: (?:^|/)pyproject\.toml$
+        pass_filenames: true
+
+      - id: make-linter
+        name: make linter (mbake)
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint mbake validate
+        language: system
+        files: (?:^|/)Makefile$|\.mk$
+        pass_filenames: true
+
+      - id: github-linter
+        name: GitHub Actions Linter (actionlint)
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint actionlint --shellcheck "uv run --group dev-lint shellcheck"
+        language: system
+        files: (?:^|/)\.github/workflows/.*\.(yml|yaml)$
+        pass_filenames: true
+
+      - id: dependabot-linter
+        name: Dependabot file configuration linter
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint check-jsonschema --builtin-schema dependabot
+        language: system
+        files: (?:^|/)\.github/dependabot\.(yml|yaml)$
+        pass_filenames: true
+
+      - id: trivy-linter
+        name: Trivy file configuration linter (check-jsonschema)
+        stages:
+          - pre-commit
+        entry: uv run --group dev-lint check-jsonschema --schemafile https://raw.githubusercontent.com/aquasecurity/trivy/main/schema/trivy-config.json
+        language: system
+        files: (?:^|/)trivy\.(yml|yaml)$
+        pass_filenames: true
+
+      - id: enforce-git-ignore
+        name: Enforce gitignore rules for environment directories
+        stages:
+          - pre-commit
+        entry: uv run python -c "import sys, subprocess; failed = any(subprocess.run(['git', 'check-ignore', '-q', f]).returncode != 0 and not print(f'Critical error File \"{f}\" is being committed but is NOT ignored by Git!') for f in sys.argv[1:]); sys.exit(1 if failed else 0)"
+        language: system
+        files: (?:^|/)(\.idea/|\.vscode/|\.venv/|\.var/|\.coverage$)
+        pass_filenames: true
+
+      - id: test-unit
+        name: Run Unit Tests (pytest)
+        stages:
+          - pre-push
+        entry: make test-unit
+        language: system
+        pass_filenames: false
+
+      - id: build
+        name: Build and check python packet
+        stages:
+          - pre-push
+        entry: make build
+        language: system
+        pass_filenames: false
+
+      - id: scan
+        name: Run vulnerability and secret scaner (Trivy)
+        stages:
+          - pre-push
+        entry: make scan
+        language: system
+        pass_filenames: false
