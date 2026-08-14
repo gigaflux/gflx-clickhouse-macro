@@ -94,6 +94,7 @@ jobs:
   # Job 3: Run test suites across multiple Python versions
   test:
     needs: [ lint ]
+    if: needs.lint.result == 'success'
     runs-on: ubuntu-latest
 
     permissions:
@@ -109,8 +110,6 @@ jobs:
       # Step 1: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.ref }}
 
       # Step 2: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
@@ -159,8 +158,6 @@ jobs:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
-      with:
-        ref: ${{ github.ref }}
 
     # Step 2: Run Trivy via official GitHub Action using env overrides
     - name: Run Trivy vulnerability scanner
@@ -183,7 +180,7 @@ jobs:
 
   # Job 4: Build python package
   build-check:
-    needs: [ test, security-scan ]
+    needs: [ security-scan ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -193,8 +190,6 @@ jobs:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
-      with:
-        ref: ${{ github.ref }}
 
     # Step 2: Setup uv
     - name: Set up uv
