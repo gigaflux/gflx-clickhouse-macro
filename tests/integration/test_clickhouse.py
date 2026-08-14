@@ -1,5 +1,5 @@
 """Integration tests."""
-from datetime import date, timedelta
+import datetime
 from typing import TypeAlias
 
 import pytest
@@ -9,10 +9,10 @@ from gflx.clickhouse.macro.engine import MacroRenderEngine
 
 TableRow: TypeAlias = tuple[int, str, str, int, int, int, str]
 
-d1 = date.today() - timedelta(days=10)
-d2 = d1 + timedelta(days=1)
-d3 = d1 + timedelta(days=2)
-d_cold = d1 - timedelta(400)
+d1 = datetime.datetime.now(tz=datetime.timezone.utc).date() - datetime.timedelta(days=10)
+d2 = d1 + datetime.timedelta(days=1)
+d3 = d1 + datetime.timedelta(days=2)
+d_cold = d1 - datetime.timedelta(400)
 
 def test_check_etl(engine_macro: MacroRenderEngine, client: Client, test_env: tuple[str, str]) -> None:
     """Test scd2 etl script."""
@@ -222,9 +222,9 @@ def test_etl2(engine_macro: MacroRenderEngine,
     column_names = ["ID", "SNAP_DATE", "LOAD_DATE", "DELETED_FLG", "CLOSED_FLG", "ATTR1", "ATTR2"]
     params_main: dict[str, str | int | float | bool] = {"db": db, "table": table, "id_struct": "ID UInt64",
                                                         "id": "ID", "sharding_column": "ID"}
-    d_start = date.today() - timedelta(days=200)
+    d_start = datetime.datetime.now(tz=datetime.timezone.utc).date() - datetime.timedelta(days=200)
     data = [
-        (i, d_start + timedelta(days=j), d_start + timedelta(days=j), False, False, 0, "")
+        (i, d_start + datetime.timedelta(days=j), d_start + datetime.timedelta(days=j), False, False, 0, "")
         for i in range(1000) for j in range(100)
     ]
     client.insert(table=f"{db}.{table}_STAGE_BUF", data=data, column_names=column_names)

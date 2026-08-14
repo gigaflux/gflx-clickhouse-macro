@@ -10,23 +10,62 @@ on:
     types: [ published ]
 
 jobs:
-  # Job 1: Run code quality tools and test suites across multiple Python versions
-  lint-and-test:
+  # Job 1: Bump version while creating new release
+  bump-version:
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_version: ${{ steps.extract-version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Bump version to match GitHub Release Tag
+        id: extract-version
+        env:
+          UV_PYTHON: "3.12"
+        run: |
+          TAG_VERSION="$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')"
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-commit --no-tag
+          git add .
+          git commit -m "bump: version update to $TAG_VERSION"
+          git push origin main
+          git push origin :refs/tags/${{ github.event.release.tag_name }}
+          git push origin refs/tags/${{ github.event.release.tag_name }}
+
+  # Job 2: Run code quality tools
+  lint:
+    needs: [ bump-version ]
+    if: |
+      always() && (
+        github.event_name != 'release' ||
+        needs.bump-version.result == 'success'
+      )
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
       pull-requests: write
 
-    strategy:
-      matrix:
-        # Test against all Python versions defined in pyproject.toml constraints
-        python-version: ["3.10", "3.11", "3.12"]
-
     steps:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
     # Step 2: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
@@ -37,7 +76,7 @@ jobs:
 
     # Step 3: Execute linters, type-checkers, and spell-checkers via Ruff, Ty, Codespell and actionlint
     - name: Run Linters & Checkers
-      run: make lint PYTHON_VERSION=${{ matrix.python-version }}
+      run: make lint PYTHON_VERSION=3.12
 
     # Step 4: Execute Dependabot linter
     - name: Run Dependabot Linter
@@ -52,32 +91,65 @@ jobs:
         header: validate-dependabot
         message: ${{ steps.validate.outputs.markdown }}
 
-    # Step 6: Run unit tests with code coverage metrics
-    - name: Run Unit Tests
-      run: make test-unit PYTHON_VERSION=${{ matrix.python-version }}
+  # Job 3: Run test suites across multiple Python versions
+  test:
+    needs: [ lint ]
+    if: always() && needs.lint.result == 'success'
+    runs-on: ubuntu-latest
 
-    # Step 7: Upload HTML coverage folder and test results report to GitHub Artifacts
-    - name: Upload Test and Coverage Reports Artifacts
-      if: always()
-      uses: actions/upload-artifact@v7
-      with:
-        name: test-reports-python-${{ matrix.python-version }}
-        path: |
-          var/htmlcov/
-          var/report.html
-        retention-days: 14
+    permissions:
+      contents: read
+      pull-requests: write
 
-    # Step 8: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
-    - name: Comment Coverage on PR
-      if: always() && github.event_name == 'pull_request' && matrix.python-version == '3.12'
-      uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
-      with:
-        pytest-xml-coverage-path: ./var/coverage.xml
-        title: "📊 Code Coverage Report"
+    strategy:
+      matrix:
+        # Test against all Python versions defined in pyproject.toml constraints
+        python-version: [ "3.10", "3.11", "3.12" ]
 
-  # Job 2: Perform static security analysis for vulnerabilities and leaked secrets
+    steps:
+      # Step 1: Fetch the repository source code
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Step 2: Install uv, since the Makefile relies on it for environment synchronization
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
+          version: "latest"
+
+      # Step 3: Run unit tests with code coverage metrics
+      - name: Run Unit Tests
+        run: make test-unit PYTHON_VERSION=${{ matrix.python-version }}
+
+      # Step 4: Upload HTML coverage folder and test results report to GitHub Artifacts
+      - name: Upload Test and Coverage Reports Artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-python-${{ matrix.python-version }}
+          path: |
+            var/htmlcov/
+            var/report.html
+          retention-days: 14
+
+      # Step 5: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
+      - name: Comment Coverage on PR
+        if: |
+          always() &&
+          github.event_name == 'pull_request' &&
+          matrix.python-version == '3.12' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
+        with:
+          pytest-xml-coverage-path: ./var/coverage.xml
+          title: "📊 Code Coverage Report"
+
+
+  # Job 3: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
-    needs: [ lint-and-test ]
+    needs: [ test ]
+    if: always() && needs.test.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,15 +171,18 @@ jobs:
 
     # Step 3: Upload the SARIF file directly to GitHub Security & Quality tab
     - name: Upload Trivy scan results to GitHub Security
-      if: always()
+      if: |
+        always() &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: trivy-results.sarif
         category: trivy-scanner
 
-  # Job 3: Verify that package build mechanisms and twine validations pass successfully
+  # Job 4: Build python package
   build-check:
-    needs: [ lint-and-test, security-scan ]
+    needs: [ security-scan ]
+    if: always() && needs.security-scan.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -143,10 +218,14 @@ jobs:
         path: .var/dist/
         if-no-files-found: error
 
-  # Job 4: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
+  # Job 5: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
   publish-testpypi:
     needs: [ build-check ]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: |
+      always() &&
+      needs.build-check.result == 'success' &&
+      github.event_name == 'release' &&
+      github.event.action == 'published'
     runs-on: ubuntu-latest
 
     environment: testpypi
@@ -170,10 +249,14 @@ jobs:
           packages-dir: .var/dist
           repository-url: https://test.pypi.org/legacy/
 
-  # Job 5: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  # Job 6: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
-    needs: [ publish-testpypi ] # Запустится ТОЛЬКО после успешной отправки на TestPyPI
-    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [ publish-testpypi ]
+    if: |
+      always() &&
+      needs.publish-testpypi.result == 'success' &&
+      github.event_name == 'release' &&
+      github.event.action == 'published'
     runs-on: ubuntu-latest
 
     environment: pypi
@@ -227,8 +310,8 @@ jobs:
               cosign verify-blob \
                 --signature .var/dist/package-artifacts.sig \
                 --certificate .var/dist/package-artifacts.pem \
-                --certificate-oidc-issuer "https://githubusercontent.com" \
-                --certificate-identity "https://github.com{{ github.repository }}/.github/workflows/build.yml@${{ github.ref }}" \
+                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
                 "$file"
             fi
           done

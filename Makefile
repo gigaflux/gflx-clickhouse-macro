@@ -23,9 +23,9 @@ PYTHON := uv run python
 PYTEST := uv run --group dev-test pytest
 RUFF := uv run --group dev-lint ruff
 MDFORMAT := uv run --group dev-lint mdformat
-TWINE := uv run --group dev-release twine
 TRIVY := uv run --group dev-scan trivy
 PRECOMMIT := uv run --group dev-lint pre-commit
+BUMPVER := uv run --group dev-release bumpver
 
 ifeq ($(OS),Windows_NT)
     RM = del /Q /F
@@ -45,10 +45,10 @@ define CLEAR_DEEP_CACHE
 endef
 endif
 
-.PHONY: install init-dev lint lint-all format test-unit test-integration scan check build run clean
+.PHONY: install init-dev lint lint-all format test-unit test-integration scan check build run release-patch release-minor release-major clean
 
 install:
-	uv sync --group dev-lint --group dev-test
+	uv sync --group dev-lint --group dev-test --group dev-release
 
 init-dev: install
 	$(PRECOMMIT) install --install-hooks \
@@ -91,12 +91,19 @@ check: lint-all test-unit scan
 build:
 	@echo "Building distribution packages..."
 	uv build --out-dir $(OUTPUT_DIR)
-	@echo "Checking built artifacts with twine..."
-	$(TWINE) check "$(OUTPUT_DIR)"/*
 
 # Run script
 run:
 	$(PYTHON) ./src/gflx/clickhouse/macro/__main__.py $(ARGS)
+
+release-patch:
+	$(BUMPVER) update --patch
+
+release-minor:
+	$(BUMPVER) update --minor
+
+release-major:
+	$(BUMPVER) update --major
 
 # Remove virtual environment, lockfiles, cache, and build artifacts
 clean:

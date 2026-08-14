@@ -85,7 +85,7 @@ repos:
           - post-checkout
           - post-merge
           - post-rewrite
-        args: ["--group", "dev-lint", "--group", "dev-test"]
+        args: ["--group", "dev-lint", "--group", "dev-test", "--group", "dev-release"]
 
   # Custom hooks
   - repo: local

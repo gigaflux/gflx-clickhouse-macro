@@ -18,8 +18,6 @@ from gflx.clickhouse.macro.engine import MacroRenderEngine
 class RichHelpFormatter(RawDescriptionRichHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     """Rich help formatter."""
 
-    pass
-
 description_text = """
 Render a ClickHouse ETL script with deduplication and SCD2 history tracking
 
@@ -275,10 +273,10 @@ def parse_args() -> tuple[bool, str, dict[str, str | int | float | bool]]:
 
     # Convert parsed arguments into a dictionary for Jinja kwargs
     # We replace hyphens with underscores to match macro parameter names
-    macro_params = {k.replace("-", "_"): v for k, v in vars(args).items()
+    macro_params: dict[str, str | int | float | bool] = {k.replace("-", "_"): v for k, v in vars(args).items()
                     if k not in ("execute", "url")}
 
-    return args.execute or False, args.url or "", macro_params
+    return bool(args.execute) or False, str(args.url) or "", macro_params
 
 
 def main(logger: logging.Logger | None = None, log_config: str | dict[str, object] = "logger.yml") -> None:
