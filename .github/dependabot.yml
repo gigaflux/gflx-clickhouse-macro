@@ -8,7 +8,7 @@ updates:
       day: "monday"
     labels:
       - "dependencies"
-      - "python"
+      - "python:uv"
 
     groups:
       prod-core-group:
@@ -62,7 +62,7 @@ updates:
       day: "monday"
     labels:
       - "dependencies"
-      - "github"
+      - "github-actions"
     groups:
       github:
         patterns:
