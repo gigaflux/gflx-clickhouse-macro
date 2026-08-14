@@ -110,7 +110,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+          ref: ${{ github.ref }}
 
       # Step 2: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
@@ -160,7 +160,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7
       with:
-       ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+        ref: ${{ github.ref }}
 
     # Step 2: Run Trivy via official GitHub Action using env overrides
     - name: Run Trivy vulnerability scanner
@@ -194,7 +194,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7
       with:
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+        ref: ${{ github.ref }}
 
     # Step 2: Setup uv
     - name: Set up uv
