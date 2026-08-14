@@ -149,6 +149,7 @@ jobs:
   # Job 3: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
     needs: [ test ]
+    if: always() && needs.test.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -181,6 +182,7 @@ jobs:
   # Job 4: Build python package
   build-check:
     needs: [ security-scan ]
+    if: always() && needs.security-scan.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -219,7 +221,11 @@ jobs:
   # Job 5: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
   publish-testpypi:
     needs: [ build-check ]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: |
+      always() &&
+      needs.build-check.result == 'success' &&
+      github.event_name == 'release' &&
+      github.event.action == 'published'
     runs-on: ubuntu-latest
 
     environment: testpypi
@@ -245,8 +251,12 @@ jobs:
 
   # Job 6: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
-    needs: [ publish-testpypi ] # Запустится ТОЛЬКО после успешной отправки на TestPyPI
-    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [ publish-testpypi ]
+    if: |
+      always() &&
+      needs.publish-testpypi.result == 'success' &&
+      github.event_name == 'release' &&
+      github.event.action == 'published'
     runs-on: ubuntu-latest
 
     environment: pypi
