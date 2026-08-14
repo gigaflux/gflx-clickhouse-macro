@@ -94,7 +94,7 @@ jobs:
   # Job 3: Run test suites across multiple Python versions
   test:
     needs: [ lint ]
-    if: needs.lint.result == 'success'
+    if: always() && needs.lint.result == 'success'
     runs-on: ubuntu-latest
 
     permissions:
