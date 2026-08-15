@@ -237,7 +237,7 @@ jobs:
     steps:
       # Step 1: Download package artifacts from the build job
       - name: Download built packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: python-packages
           path: .var/dist/
@@ -268,7 +268,7 @@ jobs:
     steps:
       # Step 1: Download package artifacts from the build job
       - name: Download built packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: python-packages
           path: .var/dist/
