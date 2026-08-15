@@ -174,8 +174,10 @@ extend-select = [
     "I", "B", "UP",
     "T20", "PT", "ARG",
     "C4", "RET", "SIM",
-    "RUF", "S", "ANN", "D"]
+    "RUF", "S", "ANN",
+    "D", "ERA", "TD"]
 ignore = ["D107", "D203", "D213"]
+task-tags = ["TODO", "FIXME", "XXX", "HACK"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -210,10 +212,16 @@ docstring-code-format = true
     "S608"
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ty]
-rules.all = "warn"
+rules.all = "error"
+
+[tool.ty.terminal]
+output-format = "github"
 
 [tool.codespell]
-skip = "./.git,./.venv,./.var,./htmlcov,./.pytest_cache,*.js,.coverage"
+skip = "./htmlcov,*.js"
 check-filenames = true
 check-hidden = false
