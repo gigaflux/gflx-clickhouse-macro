@@ -95,16 +95,18 @@ jobs:
   test:
     needs: [ lint ]
     if: always() && needs.lint.result == 'success'
-    runs-on: ubuntu-latest
-
     permissions:
       contents: read
       pull-requests: write
 
     strategy:
       matrix:
+        # Test on Linux and Windows
+        os: [ubuntu-latest, windows-latest]
         # Test against all Python versions defined in pyproject.toml constraints
         python-version: [ "3.10", "3.11", "3.12" ]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       # Step 1: Fetch the repository source code
