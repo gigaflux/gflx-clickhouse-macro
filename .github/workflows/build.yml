@@ -199,8 +199,7 @@ jobs:
   # Job 5: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
     needs: [ test, changes ]
-    #if: always() && needs.test.result == 'success' && needs.changes.outputs.scan == 'true'
-    if: always() && needs.test.result == 'success'
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
