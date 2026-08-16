@@ -12,7 +12,7 @@ from gflx.clickhouse.macro.engine import MacroRenderEngine
 
 
 @pytest.mark.parametrize(
-    ("macro", "params", "expected_value"),  # Исправлено: теперь это tuple из строк
+    ("macro", "params", "expected_value"),
     [
         # Case 1: Empty string column name
         ("create_distributed_table", {"table": "db.TEST", "table_local": "DE_SYSTEM___db.db___TEST_local",

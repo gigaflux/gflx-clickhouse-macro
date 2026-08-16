@@ -175,7 +175,7 @@ extend-select = [
     "T20", "PT", "ARG",
     "C4", "RET", "SIM",
     "RUF", "S", "ANN",
-    "D", "ERA", "TD"]
+    "D", "ERA", "TD", "RUF"]
 ignore = ["D107", "D203", "D213"]
 task-tags = ["TODO", "FIXME", "XXX", "HACK"]
 
