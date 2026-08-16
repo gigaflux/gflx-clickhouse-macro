@@ -68,8 +68,8 @@ jobs:
     if: always() && (github.event_name != 'release' || needs.bump-version.result == 'success')
     runs-on: ubuntu-latest
     outputs:
-      test: ${{ steps.filter.outputs.test }}
-      scan: ${{ steps.filter.outputs.scan }}
+      test: ${{ github.event_name == 'release' || steps.filter.outputs.test == 'true' }}
+      scan: ${{ github.event_name == 'release' || steps.filter.outputs.scan == 'true' }}
     steps:
       # Step 1: Fetch the repository source code
       - name: Checkout code
@@ -79,10 +79,10 @@ jobs:
 
       # Step 2: Check for file changes
       - name: Check for file changes
+        if: github.event_name != 'release'
         id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
-          initial-status: ${{ github.event_name == 'release' && 'true' || 'false' }}
           filters: |
             test:
               - 'src/**'
@@ -166,6 +166,7 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
+          cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
           version: "latest"
 
       # Step 3: Run unit tests with code coverage metrics
