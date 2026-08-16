@@ -29,7 +29,7 @@ def test_check_etl(engine_macro: MacroRenderEngine, client: Client, test_env: tu
 
 @pytest.mark.xdist_group(name="serial_db")
 @pytest.mark.parametrize(
-    ("test_id", "insert_data", "data", "data_new"),  # Исправлено: теперь это tuple из строк
+    ("test_id", "insert_data", "data", "data_new"),
     [
         (0, [], [], []),
         (

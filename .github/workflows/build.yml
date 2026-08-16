@@ -9,6 +9,10 @@ on:
   release:
     types: [ published ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Job 1: Bump version while creating new release
   bump-version:
@@ -19,17 +23,29 @@ jobs:
     outputs:
       new_version: ${{ steps.extract-version.outputs.version }}
     steps:
+      # Step 1: Generate GitHub token
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # Step 2: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
+      # Step 3: Install uv
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           version: "latest"
 
+      # Step 4: Bump version
       - name: Bump version to match GitHub Release Tag
         id: extract-version
         env:
@@ -37,23 +53,56 @@ jobs:
         run: |
           TAG_VERSION="$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "gigaflux-release-bot[bot]"
+          git config --global user.email "4612259+gigaflux-release-bot[bot]@users.noreply.github.com"
           uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-commit --no-tag
           git add .
-          git commit -m "bump: version update to $TAG_VERSION"
+          git commit -m "bump: version update to $TAG_VERSION [skip ci]"
           git push origin main
           git push origin :refs/tags/${{ github.event.release.tag_name }}
           git push origin refs/tags/${{ github.event.release.tag_name }}
 
-  # Job 2: Run code quality tools
-  lint:
+  # Job 2: Check for file changes
+  changes:
     needs: [ bump-version ]
-    if: |
-      always() && (
-        github.event_name != 'release' ||
-        needs.bump-version.result == 'success'
-      )
+    if: always() && (github.event_name != 'release' || needs.bump-version.result == 'success')
+    runs-on: ubuntu-latest
+    outputs:
+      test: ${{ steps.filter.outputs.test }}
+      scan: ${{ steps.filter.outputs.scan }}
+    steps:
+      # Step 1: Fetch the repository source code
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      # Step 2: Check for file changes
+      - name: Check for file changes
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          initial-status: ${{ github.event_name == 'release' && 'true' || 'false' }}
+          filters: |
+            test:
+              - 'src/**'
+              - 'tests/**'
+              - 'Makefile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            scan:
+              - 'src/**'
+              - 'Makefile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'trivy.yml'
+              - 'trivy-secret.yml'
+
+
+  # Job 3: Run code quality tools
+  lint:
+    needs: [ changes ]
+    if: always() && needs.changes.result == 'success'
     runs-on: ubuntu-latest
 
     permissions:
@@ -64,8 +113,6 @@ jobs:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
-      with:
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
     # Step 2: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
@@ -91,15 +138,16 @@ jobs:
         header: validate-dependabot
         message: ${{ steps.validate.outputs.markdown }}
 
-  # Job 3: Run test suites across multiple Python versions
+  # Job 4: Run test suites across multiple Python versions
   test:
-    needs: [ lint ]
-    if: always() && needs.lint.result == 'success'
+    needs: [ lint, changes ]
+    if: always() && needs.lint.result == 'success' && needs.changes.outputs.test == 'true'
     permissions:
       contents: read
       pull-requests: write
 
     strategy:
+      fail-fast: false
       matrix:
         # Test on Linux and Windows
         os: [ubuntu-latest, windows-latest]
@@ -131,8 +179,8 @@ jobs:
         with:
           name: test-reports-python-${{ matrix.python-version }}
           path: |
-            var/htmlcov/
-            var/report.html
+            .var/htmlcov/
+            .var/report.html
           retention-days: 14
 
       # Step 5: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
@@ -145,13 +193,12 @@ jobs:
         uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
         with:
           pytest-xml-coverage-path: ./var/coverage.xml
-          title: "📊 Code Coverage Report"
+          title: "\U0001F4CA Code Coverage Report"
 
-
-  # Job 3: Perform static security analysis for vulnerabilities and leaked secrets
+  # Job 5: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
-    needs: [ test ]
-    if: always() && needs.test.result == 'success'
+    needs: [ test, changes ]
+    if: always() && needs.test.result == 'success' && needs.changes.outputs.scan == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -174,14 +221,14 @@ jobs:
     # Step 3: Upload the SARIF file directly to GitHub Security & Quality tab
     - name: Upload Trivy scan results to GitHub Security
       if: |
-        always() &&
+        (success() || failure()) &&
         (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: trivy-results.sarif
         category: trivy-scanner
 
-  # Job 4: Build python package
+  # Job 6: Build python package
   build-check:
     needs: [ security-scan ]
     if: always() && needs.security-scan.result == 'success'
@@ -220,8 +267,8 @@ jobs:
         path: .var/dist/
         if-no-files-found: error
 
-  # Job 5: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
-  publish-testpypi:
+  # Job 7: Build GitHub release
+  publish-github-release:
     needs: [ build-check ]
     if: |
       always() &&
@@ -230,10 +277,87 @@ jobs:
       github.event.action == 'published'
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      # Step 1: Download package artifacts from the build job
+      - name: Download built packages
+        uses: actions/download-artifact@v8
+        with:
+          name: python-packages
+          path: .var/dist/
+
+      # Step 2: Install Cosign CLI tool into the runner environment
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      # Step 3: Generate keyless cryptographic signatures for all release artifacts
+      - name: Sign the publication artifacts
+        run: |
+          echo "Signing each artifact individually in .var/dist/ using GitHub OIDC identity..."
+          for file in .var/dist/*; do
+            if [ -f "$file" ]; then
+              echo "Signing: $file"
+              cosign sign-blob --yes \
+                --output-signature "${file}.sig" \
+                --output-certificate "${file}.pem" \
+                "$file"
+            fi
+          done
+
+      # Step 4: Verify ALL built files simultaneously inside GitHub Actions
+      - name: Verify All Signed Artifacts inside CI
+        run: |
+          echo "Starting cryptographic verification for all build artifacts..."
+          # Iterate through every file in the build distribution directory
+          for file in .var/dist/*; do
+            # Extract file extension
+            ext="${file##*.}"
+
+            # Skip signature and certificate files to prevent cosign from validating itself
+            if [ "$ext" != "sig" ] && [ "$ext" != "pem" ]; then
+              echo "----------------------------------------"
+              echo "Verifying integrity and origin of: $file"
+
+              cosign verify-blob \
+                --signature "${file}.sig" \
+                --certificate "${file}.pem" \
+                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+                --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
+                "$file"
+            fi
+          done
+          echo "----------------------------------------"
+          echo "SUCCESS: All files successfully validated against GitHub OIDC context!"
+
+      # Step 5: Simultaneously create a release on GitHub with auto-generated changelog
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: |
+            .var/dist/*.whl
+            .var/dist/*.tar.gz
+            .var/dist/sbom.spdx.json
+            .var/dist/*.sig
+            .var/dist/*.pem
+          tag_name: ${{ github.event.release.tag_name }}
+          generate_release_notes: true
+
+  # Job 8: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
+  publish-testpypi:
+    needs: [ publish-github-release ]
+    if: |
+      always() &&
+      needs.publish-github-release.result == 'success' &&
+      github.event_name == 'release' &&
+      github.event.action == 'published'
+    runs-on: ubuntu-latest
+
     environment: testpypi
 
     permissions:
-      contents: read
       id-token: write
 
     steps:
@@ -251,7 +375,7 @@ jobs:
           packages-dir: .var/dist
           repository-url: https://test.pypi.org/legacy/
 
-  # Job 6: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
     needs: [ publish-testpypi ]
     if: |
@@ -264,7 +388,6 @@ jobs:
     environment: pypi
 
     permissions:
-      contents: write
       id-token: write
 
     steps:
@@ -280,55 +403,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: .var/dist
-
-      # Step 3: Install Cosign CLI tool into the runner environment
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      # Step 4: Generate keyless cryptographic signatures for all release artifacts
-      - name: Sign the publication artifacts
-        run: |
-          echo "Signing artifacts in .var/dist/ using GitHub OIDC identity..."
-          cosign sign-blob --yes \
-            --output-signature .var/dist/package-artifacts.sig \
-            --output-certificate .var/dist/package-artifacts.pem \
-            .var/dist/*
-        # --yes bypasses interactive confirmation prompts in non-interactive CI environments
-
-      # Step 5: Verify ALL built files simultaneously inside GitHub Actions
-      - name: Verify All Signed Artifacts inside CI
-        run: |
-          echo "Starting cryptographic verification for all build artifacts..."
-          # Iterate through every file in the build distribution directory
-          for file in .var/dist/*; do
-            # Extract file extension
-            ext="${file##*.}"
-
-            # Skip signature and certificate files to prevent cosign from validating itself
-            if [ "$ext" != "sig" ] && [ "$ext" != "pem" ]; then
-              echo "----------------------------------------"
-              echo "Verifying integrity and origin of: $file"
-
-              cosign verify-blob \
-                --signature .var/dist/package-artifacts.sig \
-                --certificate .var/dist/package-artifacts.pem \
-                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-                --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
-                "$file"
-            fi
-          done
-          echo "----------------------------------------"
-          echo "SUCCESS: All files successfully validated against GitHub OIDC context!"
-
-      # Step 6: Simultaneously create a release on GitHub with auto-generated changelog
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          files: |
-            .var/dist/*.whl
-            .var/dist/*.tar.gz
-            .var/dist/sbom.spdx.json
-            .var/dist/package-artifacts.sig
-            .var/dist/package-artifacts.pem
-          tag_name: ${{ github.event.release.tag_name }}
-          generate_release_notes: true

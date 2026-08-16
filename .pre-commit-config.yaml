@@ -90,6 +90,14 @@ repos:
   # Custom hooks
   - repo: local
     hooks:
+      - id: ascii-linter
+        name: ascii linter
+        stages:
+          - pre-commit
+        entry: uv run python scripts/check_latin.py
+        language: system
+        pass_filenames: false
+
       - id: ruff-linter
         name: ruff linter
         stages:
