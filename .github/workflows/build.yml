@@ -55,7 +55,7 @@ jobs:
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
           git config --global user.name "gigaflux-release-bot[bot]"
           git config --global user.email "4612259+gigaflux-release-bot[bot]@users.noreply.github.com"
-          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-commit --no-tag
+          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-commit --no-tag-commit
           git add .
           git commit -m "bump: version update to $TAG_VERSION [skip ci]"
           git push origin main
@@ -246,7 +246,7 @@ jobs:
     if: always() && needs.security-scan.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: write
 
     steps:
