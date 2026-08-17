@@ -212,6 +212,7 @@ jobs:
   # Job 5: Test result
   tests-passed:
     needs: [ test ]
+    permissions: {}
     if: always()
     runs-on: ubuntu-latest
     steps:
