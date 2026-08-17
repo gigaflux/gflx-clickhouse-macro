@@ -209,10 +209,25 @@ jobs:
           pytest-xml-coverage-path: ./var/coverage.xml
           title: "\U0001F4CA Code Coverage Report"
 
-  # Job 5: Perform static security analysis for vulnerabilities and leaked secrets
+  # Job 5: Test result
+  tests-passed:
+    needs: [ test ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Matrix Status
+        run: |
+          # If the test matrix failed, fail this aggregator job as well
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "Critical Error: One or more matrix tests have failed!"
+            exit 1
+          fi
+          echo "Success: All matrix tests have passed successfully!"
+
+  # Job 6: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
-    needs: [ test, changes ]
-    if: always() && needs.test.result == 'success'
+    needs: [ tests-passed, changes ]
+    if: always() && needs.tests-passed.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -253,7 +268,7 @@ jobs:
         sarif_file: trivy-results.sarif
         category: trivy-scanner
 
-  # Job 6: Build python package
+  # Job 7: Build python package
   build-check:
     needs: [ security-scan ]
     if: always() && needs.security-scan.result == 'success'
@@ -293,7 +308,7 @@ jobs:
         path: .var/dist/
         if-no-files-found: error
 
-  # Job 7: Build GitHub release
+  # Job 8: Build GitHub release
   publish-github-release:
     needs: [ build-check ]
     if: |
@@ -367,7 +382,7 @@ jobs:
           draft: false
           make_latest: true
 
-  # Job 8: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
+  # Job 9: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
   publish-testpypi:
     needs: [ publish-github-release, build-check ]
     if: |
@@ -400,7 +415,7 @@ jobs:
             *.tar.gz
           repository-url: https://test.pypi.org/legacy/
 
-  # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  # Job 10: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
     needs: [ publish-testpypi, build-check ]
     if: |
