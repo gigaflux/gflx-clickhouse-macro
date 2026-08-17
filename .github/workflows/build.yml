@@ -66,6 +66,8 @@ jobs:
   changes:
     needs: [ bump-version ]
     if: always() && (github.event_name != 'release' || needs.bump-version.result == 'success')
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       test: ${{ github.event_name == 'release' || steps.filter.outputs.test == 'true' }}
