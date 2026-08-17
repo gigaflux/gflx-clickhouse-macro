@@ -148,7 +148,7 @@ jobs:
   # Job 4: Run test suites across multiple Python versions
   test:
     needs: [ lint, changes ]
-    if: always() && needs.lint.result == 'success' && needs.changes.outputs.test == 'true'
+    if: always() && needs.lint.result == 'success'
     permissions:
       contents: read
       pull-requests: write
@@ -166,12 +166,14 @@ jobs:
     steps:
       # Step 1: Fetch the repository source code
       - name: Checkout code
+        if: needs.changes.outputs.test == 'true' || github.event_name == 'release'
         uses: actions/checkout@v7
         with:
           ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
       # Step 2: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
+        if: needs.changes.outputs.test == 'true' || github.event_name == 'release'
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
@@ -180,11 +182,12 @@ jobs:
 
       # Step 3: Run unit tests with code coverage metrics
       - name: Run Unit Tests
+        if: needs.changes.outputs.test == 'true' || github.event_name == 'release'
         run: make test-unit PYTHON_VERSION=${{ matrix.python-version }}
 
       # Step 4: Upload HTML coverage folder and test results report to GitHub Artifacts
       - name: Upload Test and Coverage Reports Artifacts
-        if: always()
+        if: always() && (needs.changes.outputs.test == 'true' || github.event_name == 'release')
         uses: actions/upload-artifact@v7
         with:
           name: test-reports-python-${{ matrix.python-version }}
@@ -199,6 +202,7 @@ jobs:
           always() &&
           github.event_name == 'pull_request' &&
           matrix.python-version == '3.12' &&
+          needs.changes.outputs.test == 'true' &&
           github.event.pull_request.head.repo.full_name == github.repository
         uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
         with:
@@ -208,7 +212,7 @@ jobs:
   # Job 5: Perform static security analysis for vulnerabilities and leaked secrets
   security-scan:
     needs: [ test, changes ]
-    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: always() && needs.test.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
