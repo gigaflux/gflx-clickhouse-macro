@@ -179,6 +179,14 @@ repos:
         files: (?:^|/)trivy\.(yml|yaml)$
         pass_filenames: true
 
+      - id: bumpver-linter
+        name: Bumpver linter
+        stages:
+          - pre-commit
+        entry: uv run --group dev-release bumpver update --set-version "100.0.0" --dry
+        language: system
+        pass_filenames: false
+
       - id: enforce-git-ignore
         name: Enforce gitignore rules for environment directories
         stages:
