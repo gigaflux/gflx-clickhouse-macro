@@ -7,7 +7,7 @@ on:
   pull_request:
     branches: [ "main" ]
   release:
-    types: [ published ]
+    types: [ created ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   # Job 1: Bump version while creating new release
   bump-version:
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release' && github.event.action == 'created'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -37,6 +37,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       # Step 3: Install uv
       - name: Set up uv
@@ -50,6 +51,8 @@ jobs:
         id: extract-version
         env:
           UV_PYTHON: "3.12"
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           TAG_VERSION="$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
@@ -59,8 +62,8 @@ jobs:
           git add .
           git commit -m "bump: version update to $TAG_VERSION [skip ci]"
           git push origin main
-          git push origin :refs/tags/${{ github.event.release.tag_name }}
-          git push origin refs/tags/${{ github.event.release.tag_name }}
+          git tag -f "${{ github.event.release.tag_name }}"
+          git push -f origin "${{ github.event.release.tag_name }}"
 
   # Job 2: Check for file changes
   changes:
@@ -77,7 +80,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+          ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
       # Step 2: Check for file changes
       - name: Check for file changes
@@ -115,6 +118,8 @@ jobs:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
     # Step 2: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
@@ -135,7 +140,7 @@ jobs:
     # Step 5: Execute Dependabot pull request comment
     - name: Run Dependabot pull request comment
       uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
-      if: always()
+      if: always() && github.event_name == 'pull_request'
       with:
         header: validate-dependabot
         message: ${{ steps.validate.outputs.markdown }}
@@ -162,6 +167,8 @@ jobs:
       # Step 1: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
       # Step 2: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
@@ -211,6 +218,8 @@ jobs:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
     # Step 2: Run Trivy via official GitHub Action using env overrides
     - name: Run Trivy vulnerability scanner
@@ -246,13 +255,14 @@ jobs:
     if: always() && needs.security-scan.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      actions: write
+      contents: read
 
     steps:
     # Step 1: Fetch the repository source code
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        ref: ${{ (github.event_name == 'release' && github.event.action == 'created') && 'main' || '' }}
 
     # Step 2: Setup uv
     - name: Set up uv
@@ -286,7 +296,7 @@ jobs:
       always() &&
       needs.build-check.result == 'success' &&
       github.event_name == 'release' &&
-      github.event.action == 'published'
+      github.event.action == 'created'
     runs-on: ubuntu-latest
 
     permissions:
@@ -309,37 +319,31 @@ jobs:
       - name: Sign the publication artifacts
         run: |
           echo "Signing each artifact individually in .var/dist/ using GitHub OIDC identity..."
-          for file in .var/dist/*; do
-            if [ -f "$file" ]; then
-              echo "Signing: $file"
-              cosign sign-blob --yes \
-                --output-signature "${file}.sig" \
-                --output-certificate "${file}.pem" \
-                "$file"
-            fi
+          FILES=$(find .var/dist/ -type f ! -name "*.sig" ! -name "*.pem")
+          for file in $FILES; do
+            echo "Signing: $file"
+            cosign sign-blob --yes \
+              --output-signature "${file}.sig" \
+              --output-certificate "${file}.pem" \
+              "$file"
           done
 
       # Step 4: Verify ALL built files simultaneously inside GitHub Actions
       - name: Verify All Signed Artifacts inside CI
         run: |
           echo "Starting cryptographic verification for all build artifacts..."
+          FILES=$(find .var/dist/ -type f ! -name "*.sig" ! -name "*.pem")
           # Iterate through every file in the build distribution directory
-          for file in .var/dist/*; do
-            # Extract file extension
-            ext="${file##*.}"
+          for file in $FILES; do
+            echo "----------------------------------------"
+            echo "Verifying integrity and origin of: $file"
 
-            # Skip signature and certificate files to prevent cosign from validating itself
-            if [ "$ext" != "sig" ] && [ "$ext" != "pem" ]; then
-              echo "----------------------------------------"
-              echo "Verifying integrity and origin of: $file"
-
-              cosign verify-blob \
-                --signature "${file}.sig" \
-                --certificate "${file}.pem" \
-                --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-                --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
-                "$file"
-            fi
+            cosign verify-blob \
+              --signature "${file}.sig" \
+              --certificate "${file}.pem" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
+              "$file"
           done
           echo "----------------------------------------"
           echo "SUCCESS: All files successfully validated against GitHub OIDC context!"
@@ -355,16 +359,18 @@ jobs:
             .var/dist/*.sig
             .var/dist/*.pem
           tag_name: ${{ github.event.release.tag_name }}
-          generate_release_notes: true
+          generate_release_notes: false
+          draft: false
+          make_latest: true
 
   # Job 8: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
   publish-testpypi:
-    needs: [ publish-github-release ]
+    needs: [ publish-github-release, build-check ]
     if: |
       always() &&
       needs.publish-github-release.result == 'success' &&
-      github.event_name == 'release' &&
-      github.event.action == 'published'
+      needs.build-check.result == 'success' &&
+      github.event_name == 'release'
     runs-on: ubuntu-latest
 
     environment: testpypi
@@ -385,16 +391,19 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: .var/dist
+          filter-packages: |
+            *.whl
+            *.tar.gz
           repository-url: https://test.pypi.org/legacy/
 
   # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
-    needs: [ publish-testpypi ]
+    needs: [ publish-testpypi, build-check ]
     if: |
       always() &&
       needs.publish-testpypi.result == 'success' &&
-      github.event_name == 'release' &&
-      github.event.action == 'published'
+      needs.build-check.result == 'success' &&
+      github.event_name == 'release'
     runs-on: ubuntu-latest
 
     environment: pypi
@@ -415,3 +424,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: .var/dist
+          filter-packages: |
+            *.whl
+            *.tar.gz
