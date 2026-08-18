@@ -30,6 +30,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
+          # TODO: replace app-id with client-id after updating the action
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
@@ -39,9 +40,8 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
-          persist-credentials: false
 
-       # Step 3: Checking draft release
+      # Step 3: Checking draft release
       - name: Verify Draft Release Exists
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -70,16 +70,19 @@ jobs:
           enable-cache: true
           version: "latest"
 
-      # Step 5: Bump version
+      # Step 5: Configure git
+      - name: Configure Git User
+        run: |
+          git config --local user.email "4612259+gigaflux-release-bot[bot]@users.noreply.github.com"
+          git config --local user.name "gigaflux-release-bot[bot]"
+
+      # Step 6: Bump version
       - name: Bump version to match GitHub Release Tag
         env:
           UV_PYTHON: "3.12"
         run: |
           TAG_VERSION="$(echo "${{ github.event.inputs.release_tag }}" | sed 's/^v//')"
-          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-commit --no-tag-commit
-          git add .
-          git commit --author="gigaflux-release-bot[bot] <4612259+gigaflux-release-bot[bot]@users.noreply.github.com>" \
-          -m "bump: version update to $TAG_VERSION [skip ci]"
+          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-tag-commit -m "bump: version update to $TAG_VERSION [skip ci]"
           git push origin HEAD:${{ github.ref_name }}
 
   # Job 2: Check for file changes
@@ -122,7 +125,7 @@ jobs:
     needs: [ bump-version, changes ]
     if: |
       always() && (
-        (github.event_name == 'workflow_dispatch' && needs.bump-version.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && contains(fromJSON('["success", "skipped"]'), needs.bump-version.result)) ||
         (github.event_name != 'workflow_dispatch' && needs.changes.result == 'success')
       )
     runs-on: ubuntu-latest
@@ -237,8 +240,10 @@ jobs:
 
   # Job 5: Test result
   tests-passed:
-    needs: [ test ]
-    if: always()
+    needs: [ lint, test ]
+    if: |
+      always() &&
+      needs.lint.result == 'success'
     permissions: {}
     runs-on: ubuntu-latest
     steps:
@@ -369,28 +374,23 @@ jobs:
       - name: Sign the publication artifacts
         run: |
           echo "Signing each artifact individually in .var/dist/ using GitHub OIDC identity..."
-          FILES=$(find .var/dist/ -type f ! -name "*.sig" ! -name "*.pem")
+          FILES=$(find .var/dist/ -type f ! -name "*.sigstore" ! -name "*.bundle")
           for file in $FILES; do
             echo "Signing: $file"
-            cosign sign-blob --yes \
-              --output-signature "${file}.sig" \
-              --output-certificate "${file}.pem" \
-              "$file"
+            cosign sign-blob --yes --bundle "${file}.sigstore" "$file"
           done
 
       # Step 5: Verify ALL built files simultaneously inside GitHub Actions
       - name: Verify All Signed Artifacts inside CI
         run: |
           echo "Starting cryptographic verification for all build artifacts..."
-          FILES=$(find .var/dist/ -type f ! -name "*.sig" ! -name "*.pem")
+          FILES=$(find .var/dist/ -type f ! -name "*.sigstore")
           # Iterate through every file in the build distribution directory
           for file in $FILES; do
             echo "----------------------------------------"
             echo "Verifying integrity and origin of: $file"
-
             cosign verify-blob \
-              --signature "${file}.sig" \
-              --certificate "${file}.pem" \
+              --bundle "${file}.sigstore" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
               "$file"
@@ -409,11 +409,7 @@ jobs:
             --target "$LATEST_COMMIT" \
             --draft=false \
             --latest \
-            .var/dist/*.whl \
-            .var/dist/*.tar.gz \
-            .var/dist/sbom.spdx.json \
-            .var/dist/*.sig \
-            .var/dist/*.pem
+            .var/dist/*
 
   # Job 9: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
   publish-testpypi:
