@@ -82,8 +82,7 @@ jobs:
           UV_PYTHON: "3.12"
         run: |
           TAG_VERSION="$(echo "${{ github.event.inputs.release_tag }}" | sed 's/^v//')"
-          uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --no-tag-commit -m "bump: version update to $TAG_VERSION [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          uv run --group dev-release bumpver update --set-version "$TAG_VERSION"
 
   # Job 2: Check for file changes
   changes:
