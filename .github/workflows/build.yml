@@ -30,7 +30,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          # TODO: replace app-id with client-id after updating the action
+          # TODO(uniqwolf): replace app-id with client-id after updating the action
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
