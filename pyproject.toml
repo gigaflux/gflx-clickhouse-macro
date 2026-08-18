@@ -96,11 +96,11 @@ include = ["src/gflx/clickhouse/macro"]
 [tool.bumpver]
 current_version = "0.1.0"
 version_pattern = "MAJOR.MINOR.PATCH"
-commit_message = "bump version {old_version} -> {new_version}"
+commit_message = "bump version {old_version} -> {new_version} [skip ci]"
 commit = true
 commit_args = "-s"
-tag = true
-push = false
+tag = false
+push = true
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
