@@ -164,14 +164,11 @@ jobs:
   test:
     needs: [ lint, changes ]
     if: |
-      always() &&
       needs.lint.result == 'success' && (
         github.event_name == 'workflow_dispatch' ||
         (github.event_name != 'workflow_dispatch' && needs.changes.outputs.test == 'true')
       )
-    permissions:
-      contents: read
-      pull-requests: write
+    permissions: write-all
 
     strategy:
       fail-fast: false
@@ -184,6 +181,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+
       # Step 1: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
@@ -210,7 +208,21 @@ jobs:
             .var/report.html
           retention-days: 14
 
-      # Step 5: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
+      # Step 5: Upload coverage report using the new official action
+      - name: Upload coverage report
+        if: |
+          (success() || failure()) &&
+          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') &&
+          matrix.python-version == '3.12' &&
+          matrix.os == 'ubuntu-latest' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: ./.var/coverage.xml
+          language: Python
+          label: code-coverage-agent
+
+      # Step 6: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
       - name: Comment Coverage on PR
         if: |
           (success() || failure()) &&
@@ -220,7 +232,7 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
         with:
-          pytest-xml-coverage-path: ./var/coverage.xml
+          pytest-xml-coverage-path: ./.var/coverage.xml
           title: "\U0001F4CA Code Coverage Report"
 
   # Job 5: Test result
@@ -278,6 +290,7 @@ jobs:
     - name: Upload Trivy scan results to GitHub Security
       if: |
         (success() || failure()) &&
+        (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
         (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: github/codeql-action/upload-sarif@v4
       with:
