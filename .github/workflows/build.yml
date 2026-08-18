@@ -84,7 +84,6 @@ jobs:
 
   # Job 2: Check for file changes
   changes:
-    needs: [ bump-version ]
     if: github.event_name != 'workflow_dispatch'
     permissions:
       contents: read
