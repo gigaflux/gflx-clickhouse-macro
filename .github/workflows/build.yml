@@ -85,9 +85,7 @@ jobs:
   # Job 2: Check for file changes
   changes:
     needs: [ bump-version ]
-    if: |
-      github.event_name != 'workflow_dispatch' &&
-      (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped')
+    if: github.event_name != 'workflow_dispatch'
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -124,8 +122,10 @@ jobs:
   lint:
     needs: [ bump-version, changes ]
     if: |
-      (github.event_name == 'workflow_dispatch' && needs.bump-version.result == 'success') ||
-      (github.event_name != 'workflow_dispatch' && needs.changes.result == 'success')
+      always() && (
+        (github.event_name == 'workflow_dispatch' && needs.bump-version.result == 'success') ||
+        (github.event_name != 'workflow_dispatch' && needs.changes.result == 'success')
+      )
     runs-on: ubuntu-latest
 
     permissions:
@@ -165,6 +165,7 @@ jobs:
   test:
     needs: [ lint, changes ]
     if: |
+      always() &&
       needs.lint.result == 'success' && (
         github.event_name == 'workflow_dispatch' ||
         (github.event_name != 'workflow_dispatch' && needs.changes.outputs.test == 'true')
