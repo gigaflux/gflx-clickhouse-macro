@@ -65,7 +65,7 @@ jobs:
 
       # Step 4: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
           version: "latest"
@@ -138,7 +138,7 @@ jobs:
 
     # Step 2: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
-      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       with:
         enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
         version: "latest"
@@ -188,7 +188,7 @@ jobs:
 
       # Step 2: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
           cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
@@ -312,7 +312,7 @@ jobs:
 
     # Step 2: Setup uv
     - name: Set up uv
-      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       with:
         enable-cache: true
 
@@ -352,7 +352,7 @@ jobs:
     steps:
       # Step 1: Fetch the repository source code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Step 2: Download package artifacts from the build job
       - name: Download built packages
@@ -441,7 +441,7 @@ jobs:
 
       # Step 2: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
           version: "latest"
@@ -477,7 +477,7 @@ jobs:
 
       # Step 2: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
           version: "latest"
