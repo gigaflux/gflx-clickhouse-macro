@@ -17,6 +17,8 @@ OUTPUT_DIR := $(VAR_DIR)/dist
 TEST_UNIT_DIR := tests/unit
 # Integration test dir
 TEST_INTEGRATION_DIR := tests/integration
+# Github test dir
+TEST_GITHUB_DIR := tests/github
 
 # Utils
 PYTHON := uv run python
@@ -45,7 +47,7 @@ define CLEAR_DEEP_CACHE
 endef
 endif
 
-.PHONY: install init-dev lint lint-all format test-unit test-integration scan check build run release-patch release-minor release-major clean
+.PHONY: install init-dev lint lint-all format test-unit test-integration test-github scan check build run release-patch release-minor release-major clean
 
 install:
 	uv sync --group dev-lint --group dev-test --group dev-release
@@ -78,6 +80,10 @@ test-unit:
 # Run integration tests skipping code coverage calculations
 test-integration:
 	$(PYTEST) $(TEST_INTEGRATION_DIR) --no-cov
+
+# Run github actions tests skipping code coverage calculations
+test-github:
+	$(PYTEST) $(TEST_GITHUB_DIR) --no-cov
 
 # Run security vulnerability and secret scanning using Trivy
 scan:

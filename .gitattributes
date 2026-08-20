@@ -11,13 +11,14 @@
 {Makefile,Dockerfile} text eol=lf
 .{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} text eol=lf
 .pre-commit-*.{yaml,yml} text eol=lf
+{flake.nix,flake.lock,nix.conf} text eol=lf
 uv.lock text eol=lf
 
 # Ignore files while build release archive
 .{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} export-ignore
 .{pre-commit-*,markdownlint,gitpod,readthedocs,hadolint,cherry_picker}.* export-ignore
-.{idea,vscode,var,github,tox,pytest_cache,ruff_cache,mypy_cache,htmlcov}/ export-ignore
-{Makefile,trivy*.yml,uv.lock} export-ignore
+.{idea,vscode,var,github,tox,pytest_cache,ruff_cache,mypy_cache,htmlcov,nixconfig,nix-node,direnv}/ export-ignore
+{Makefile,trivy*.yml,uv.lock,flake.nix,flake.lock} export-ignore
 {pytest.ini,tox.ini,conftest.py,coverage.xml,mypy.ini,ruff.toml,.coverage} export-ignore
 tests/ export-ignore
 
