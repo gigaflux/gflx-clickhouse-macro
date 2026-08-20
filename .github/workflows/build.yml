@@ -180,7 +180,9 @@ jobs:
   # Job 4: Test result
   tests-passed:
     needs: [ lint, test ]
-    if: always() && needs.lint.result == 'success'
+    if: |
+      always() &&
+      needs.lint.result == 'success'
     permissions: {}
     runs-on: ubuntu-latest
     steps:
@@ -244,7 +246,10 @@ jobs:
   # Job 6: Bump version while creating new release
   bump-version:
     needs: [ security-scan ]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+    if: |
+      always() &&
+      needs.security-scan.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -313,7 +318,10 @@ jobs:
   # Job 7: Build python package
   build-check:
     needs: [ bump-version ]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+    if: |
+      always() &&
+      needs.bump-version.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -352,7 +360,10 @@ jobs:
   # Job 8: Build GitHub release
   publish-github-release:
     needs: [ build-check ]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+    if: |
+      always() &&
+      needs.build-check.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
 
     permissions:
@@ -391,7 +402,10 @@ jobs:
   # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
   publish-pypi:
     needs: [ publish-github-release ]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+    if: |
+      always() &&
+      needs.publish-github-release.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     environment: testpypi
 
