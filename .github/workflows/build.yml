@@ -18,8 +18,231 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job 1: Bump version while creating new release
+  # Job 1: Check for file changes
+  changes:
+    if: github.event_name != 'workflow_dispatch'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      test: ${{ steps.filter.outputs.test }}
+      scan: ${{ steps.filter.outputs.scan }}
+    steps:
+      # Step 1: Fetch the repository source code
+      - name: Checkout code
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v7
+
+      # Step 2: Check for file changes
+      - name: Check for file changes
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            test:
+              - 'src/**'
+              - 'tests/**'
+              - 'Makefile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            scan:
+              - 'src/**'
+              - 'Makefile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'trivy.yml'
+              - 'trivy-secret.yml'
+
+
+  # Job 2: Run code quality tools
+  lint:
+    needs: [ changes ]
+    if: |
+      always() &&
+      !contains(needs.changes.result, 'failure') &&
+      !contains(needs.changes.result, 'cancelled')
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+    # Step 1: Fetch the repository source code
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    # Step 2: Install uv, since the Makefile relies on it for environment synchronization
+    - name: Set up uv
+      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      with:
+        enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
+        version: "latest"
+
+    # Step 3: Execute linters, type-checkers, and spell-checkers via Ruff, Ty, CodeSpell and ActionLint
+    - name: Run Linters & Checkers
+      run: make lint PYTHON_VERSION=3.12
+
+    # Step 4: Execute Dependabot linter
+    - name: Run Dependabot Linter
+      uses: marocchino/validate-dependabot@d8ae5c0d03dd75fbd0ad5f8ab4ba8101ebbd4b37 # v3.0.0
+      id: validate
+
+    # Step 5: Execute Dependabot pull request comment
+    - name: Run Dependabot pull request comment
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+      if: (success() || failure()) && github.event_name == 'pull_request' && github.repository_owner != 'nektos'
+      with:
+        header: validate-dependabot
+        message: ${{ steps.validate.outputs.markdown }}
+
+  # Job 3: Run test suites across multiple Python versions
+  test:
+    needs: [ lint, changes ]
+    if: |
+      always() &&
+      needs.lint.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name != 'workflow_dispatch' && needs.changes.outputs.test == 'true')
+      )
+    permissions: write-all
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test on Linux and Windows
+        os: [ubuntu-latest, windows-latest]
+        # Test against all Python versions defined in pyproject.toml constraints
+        python-version: [ "3.10", "3.11", "3.12" ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+      # Step 1: Fetch the repository source code
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Step 2: Install uv, since the Makefile relies on it for environment synchronization
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
+          cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
+          version: "latest"
+
+      # Step 3: Run unit tests with code coverage metrics
+      - name: Run Unit Tests
+        run: make test-unit PYTHON_VERSION=${{ matrix.python-version }}
+
+      # Step 4: Upload HTML coverage folder and test results report to GitHub Artifacts
+      - name: Upload Test and Coverage Reports Artifacts
+        if: ${{ github.repository_owner != 'nektos' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-python-${{ matrix.python-version }}-${{ matrix.os }}
+          path: |
+            .var/htmlcov/
+            .var/report.html
+          retention-days: 14
+
+      # Step 5: Upload coverage report using the new official action
+      - name: Upload Coverage report
+        if: |
+          (success() || failure()) &&
+          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') &&
+          matrix.python-version == '3.12' &&
+          matrix.os == 'ubuntu-latest' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+          github.repository_owner != 'nektos'
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: ./.var/coverage.xml
+          language: Python
+          label: code-coverage-agent
+
+      # Step 6: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
+      - name: Comment Coverage on PR
+        if: |
+          (success() || failure()) &&
+          github.event_name == 'pull_request' &&
+          matrix.python-version == '3.12' &&
+          matrix.os == 'ubuntu-latest' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.repository_owner != 'nektos'
+        uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
+        with:
+          pytest-xml-coverage-path: ./.var/coverage.xml
+          title: "\U0001F4CA Code Coverage Report"
+
+  # Job 4: Test result
+  tests-passed:
+    needs: [ lint, test ]
+    if: always() && needs.lint.result == 'success'
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Matrix Status
+        run: |
+          # If the test matrix failed, fail this aggregator job as well
+          if [ "${{ needs.test.result }}" != "success" ] && [ "${{ needs.test.result }}" != "skipped" ]; then
+            echo "Critical Error: One or more matrix tests have failed (Status: ${{ needs.test.result }})!"
+            exit 1
+          fi
+          echo "Success: All matrix tests have passed successfully or were safely skipped!"
+
+  # Job 5: Perform static security analysis for vulnerabilities and leaked secrets
+  security-scan:
+    needs: [ tests-passed, changes ]
+    if: |
+      needs.tests-passed.result == 'success' &&
+      !contains(needs.changes.result, 'failure') &&
+      !contains(needs.changes.result, 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    # Step 1: Fetch the repository source code
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    # Step 2: Run Trivy via official GitHub Action using env overrides
+    - name: Run Trivy vulnerability scanner
+      if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.scan == 'true'
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
+      with:
+        version: 'v0.74.0'
+        scan-type: 'fs'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        trivy-config: 'trivy.yml'
+
+    # Step 3: Create empty SARIF report
+    - name: Create empty SARIF placeholder if skipped
+      if: github.event_name != 'workflow_dispatch' && needs.changes.outputs.scan != 'true'
+      run: |
+        # shellcheck disable=SC2016
+        echo '{"version": "2.1.0", "$schema":  "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "runs": [{"tool": {"driver": {"fullName": "Trivy Vulnerability Scanner", "informationUri": "https://github.com/aquasecurity/trivy", "name": "Trivy", "rules": [], "version": "0.74.0"}}, "results": []}]}' > trivy-results.sarif
+
+    # Step 4: Upload the SARIF file directly to GitHub Security & Quality tab
+    - name: Upload Trivy scan results to GitHub Security
+      if: |
+        (success() || failure()) &&
+        (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+        github.repository_owner != 'nektos'
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: trivy-results.sarif
+        category: trivy-scanner
+
+  # Job 6: Bump version while creating new release
   bump-version:
+    needs: [ security-scan ]
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
@@ -82,271 +305,53 @@ jobs:
           UV_PYTHON: "3.12"
         run: |
           TAG_VERSION="$(echo "${{ github.event.inputs.release_tag }}" | sed 's/^v//')"
-          uv run --group dev-release bumpver update --set-version "$TAG_VERSION"
-
-  # Job 2: Check for file changes
-  changes:
-    if: github.event_name != 'workflow_dispatch'
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    outputs:
-      test: ${{ steps.filter.outputs.test == 'true' }}
-      scan: ${{ steps.filter.outputs.scan == 'true' }}
-    steps:
-      # Step 1: Fetch the repository source code
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      # Step 2: Check for file changes
-      - name: Check for file changes
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            test:
-              - 'src/**'
-              - 'tests/**'
-              - 'Makefile'
-              - 'pyproject.toml'
-              - 'uv.lock'
-            scan:
-              - 'src/**'
-              - 'Makefile'
-              - 'pyproject.toml'
-              - 'uv.lock'
-              - 'trivy.yml'
-              - 'trivy-secret.yml'
-
-
-  # Job 3: Run code quality tools
-  lint:
-    needs: [ bump-version, changes ]
-    if: |
-      always() && (
-        (github.event_name == 'workflow_dispatch' && contains(fromJSON('["success", "skipped"]'), needs.bump-version.result)) ||
-        (github.event_name != 'workflow_dispatch' && needs.changes.result == 'success')
-      )
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-    # Step 1: Fetch the repository source code
-    - name: Checkout code
-      uses: actions/checkout@v7
-
-    # Step 2: Install uv, since the Makefile relies on it for environment synchronization
-    - name: Set up uv
-      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      with:
-        enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
-        version: "latest"
-
-    # Step 3: Execute linters, type-checkers, and spell-checkers via Ruff, Ty, CodeSpell and ActionLint
-    - name: Run Linters & Checkers
-      run: make lint PYTHON_VERSION=3.12
-
-    # Step 4: Execute Dependabot linter
-    - name: Run Dependabot Linter
-      uses: marocchino/validate-dependabot@d8ae5c0d03dd75fbd0ad5f8ab4ba8101ebbd4b37 # v3.0.0
-      id: validate
-
-    # Step 5: Execute Dependabot pull request comment
-    - name: Run Dependabot pull request comment
-      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
-      if: (success() || failure()) && github.event_name == 'pull_request'
-      with:
-        header: validate-dependabot
-        message: ${{ steps.validate.outputs.markdown }}
-
-  # Job 4: Run test suites across multiple Python versions
-  test:
-    needs: [ lint, changes ]
-    if: |
-      needs.lint.result == 'success' && (
-        github.event_name == 'workflow_dispatch' ||
-        (github.event_name != 'workflow_dispatch' && needs.changes.outputs.test == 'true')
-      )
-    permissions: write-all
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # Test on Linux and Windows
-        os: [ubuntu-latest, windows-latest]
-        # Test against all Python versions defined in pyproject.toml constraints
-        python-version: [ "3.10", "3.11", "3.12" ]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-
-      # Step 1: Fetch the repository source code
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      # Step 2: Install uv, since the Makefile relies on it for environment synchronization
-      - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
-          cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
-          version: "latest"
-
-      # Step 3: Run unit tests with code coverage metrics
-      - name: Run Unit Tests
-        run: make test-unit PYTHON_VERSION=${{ matrix.python-version }}
-
-      # Step 4: Upload HTML coverage folder and test results report to GitHub Artifacts
-      - name: Upload Test and Coverage Reports Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-reports-python-${{ matrix.python-version }}-${{ matrix.os }}
-          path: |
-            .var/htmlcov/
-            .var/report.html
-          retention-days: 14
-
-      # Step 5: Upload coverage report using the new official action
-      - name: Upload coverage report
-        if: |
-          (success() || failure()) &&
-          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') &&
-          matrix.python-version == '3.12' &&
-          matrix.os == 'ubuntu-latest' &&
-          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/upload-code-coverage@v1
-        with:
-          file: ./.var/coverage.xml
-          language: Python
-          label: code-coverage-agent
-
-      # Step 6: Leave a summary comment inside the Pull Request (Only for Python 3.12 within PRs)
-      - name: Comment Coverage on PR
-        if: |
-          (success() || failure()) &&
-          github.event_name == 'pull_request' &&
-          matrix.python-version == '3.12' &&
-          matrix.os == 'ubuntu-latest' &&
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
-        with:
-          pytest-xml-coverage-path: ./.var/coverage.xml
-          title: "\U0001F4CA Code Coverage Report"
-
-  # Job 5: Test result
-  tests-passed:
-    needs: [ lint, test ]
-    if: |
-      always() &&
-      needs.lint.result == 'success'
-    permissions: {}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check Matrix Status
-        run: |
-          # If the test matrix failed, fail this aggregator job as well
-          if [ "${{ needs.test.result }}" != "success" ] && [ "${{ needs.test.result }}" != "skipped" ]; then
-            echo "Critical Error: One or more matrix tests have failed (Status: ${{ needs.test.result }})!"
-            exit 1
+          if uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --dry-run > /dev/null 2>&1; then
+            uv run --group dev-release bumpver update --set-version "$TAG_VERSION"
           fi
-          echo "Success: All matrix tests have passed successfully or were safely skipped!"
-
-  # Job 6: Perform static security analysis for vulnerabilities and leaked secrets
-  security-scan:
-    needs: [ tests-passed, changes ]
-    if: |
-      always() &&
-      needs.tests-passed.result == 'success' &&
-      (needs.changes.result == 'success' || needs.changes.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-    # Step 1: Fetch the repository source code
-    - name: Checkout code
-      uses: actions/checkout@v7
-
-    # Step 2: Run Trivy via official GitHub Action using env overrides
-    - name: Run Trivy vulnerability scanner
-      if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.scan == 'true'
-      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 #v0.36.0
-      with:
-        version: 'v0.74.0'
-        scan-type: 'fs'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        trivy-config: 'trivy.yml'
-
-    # Step 3: Create empty SARIF report
-    - name: Create empty SARIF placeholder if skipped
-      if: github.event_name != 'workflow_dispatch' && needs.changes.outputs.scan != 'true'
-      run: |
-        # shellcheck disable=SC2016
-        echo '{"version": "2.1.0", "$schema":  "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json", "runs": [{"tool": {"driver": {"fullName": "Trivy Vulnerability Scanner", "informationUri": "https://github.com/aquasecurity/trivy", "name": "Trivy", "rules": [], "version": "0.74.0"}}, "results": []}]}' > trivy-results.sarif
-
-    # Step 4: Upload the SARIF file directly to GitHub Security & Quality tab
-    - name: Upload Trivy scan results to GitHub Security
-      if: |
-        (success() || failure()) &&
-        (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
-        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: trivy-results.sarif
-        category: trivy-scanner
 
   # Job 7: Build python package
   build-check:
-    needs: [ security-scan ]
-    if: always() && needs.security-scan.result == 'success'
+    needs: [ bump-version ]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-    # Step 1: Fetch the repository source code
-    - name: Checkout code
-      uses: actions/checkout@v7
+      # Step 1: Fetch the repository source code
+      - name: Checkout code
+        uses: actions/checkout@v7
 
-    # Step 2: Setup uv
-    - name: Set up uv
-      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      with:
-        enable-cache: true
+      # Step 2: Setup uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
 
-    # Step 3: Execute the build workflow to ensure distributions can be built and Twine checks pass
-    - name: Test Build Artifacts
-      run: make build PYTHON_VERSION=3.12
+      # Step 3: Execute the build workflow to ensure distributions can be built and Twine checks pass
+      - name: Test Build Artifacts
+        run: make build PYTHON_VERSION=3.12
 
-    # Step 4: Generate SBOM
-    - name: Generate SBOM (SPDX format)
-      uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
-      with:
-        format: spdx-json
-        output-file: '.var/dist/sbom.spdx.json'
+      # Step 4: Generate SBOM
+      - name: Generate SBOM (SPDX format)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          format: spdx-json
+          output-file: '.var/dist/sbom.spdx.json'
 
-    # Step 5: Upload package artifacts
-    - name: Upload built packages
-      uses: actions/upload-artifact@v7
-      with:
-        name: python-packages
-        path: .var/dist/
-        if-no-files-found: error
+      # Step 5: Upload package artifacts
+      - name: Upload built packages
+        if: ${{ github.repository_owner != 'nektos' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-packages
+          path: .var/dist/
+          if-no-files-found: error
 
   # Job 8: Build GitHub release
   publish-github-release:
     needs: [ build-check ]
-    if: |
-      always() &&
-      needs.build-check.result == 'success' &&
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.release_tag != ''
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
 
     permissions:
@@ -360,124 +365,67 @@ jobs:
 
       # Step 2: Download package artifacts from the build job
       - name: Download built packages
+        if: ${{ github.repository_owner != 'nektos' }}
         uses: actions/download-artifact@v8
         with:
           name: python-packages
           path: .var/dist/
 
-      # Step 3: Install Cosign CLI tool into the runner environment
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      # Step 4: Generate keyless cryptographic signatures for all release artifacts
-      - name: Sign the publication artifacts
-        run: |
-          echo "Signing each artifact individually in .var/dist/ using GitHub OIDC identity..."
-          FILES=$(find .var/dist/ -type f ! -name "*.sigstore" ! -name "*.bundle")
-          for file in $FILES; do
-            echo "Signing: $file"
-            cosign sign-blob --yes --bundle "${file}.sigstore" "$file"
-          done
-
-      # Step 5: Verify ALL built files simultaneously inside GitHub Actions
-      - name: Verify All Signed Artifacts inside CI
-        run: |
-          echo "Starting cryptographic verification for all build artifacts..."
-          FILES=$(find .var/dist/ -type f ! -name "*.sigstore")
-          # Iterate through every file in the build distribution directory
-          for file in $FILES; do
-            echo "----------------------------------------"
-            echo "Verifying integrity and origin of: $file"
-            cosign verify-blob \
-              --bundle "${file}.sigstore" \
-              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-              --certificate-identity-regexp "https://github.com/${{ github.repository_owner }}/.*" \
-              "$file"
-          done
-          echo "----------------------------------------"
-          echo "SUCCESS: All files successfully validated against GitHub OIDC context!"
-
       # Step 6: Simultaneously upload artifacts and publish the existing draft release via GitHub CLI
       - name: Publish GitHub Release
+        if: ${{ github.repository_owner != 'nektos' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Publishing draft release for tag ${{ github.event.inputs.release_tag }} and attaching signed artifacts..."
+          echo "Attaching python artifacts to the draft release..."
+          gh release upload "${{ github.event.inputs.release_tag }}" .var/dist/* --clobber
+          echo "Publishing draft release for tag ${{ github.event.inputs.release_tag }}"
           LATEST_COMMIT=$(git rev-parse HEAD)
           gh release edit "${{ github.event.inputs.release_tag }}" \
             --target "$LATEST_COMMIT" \
             --draft=false \
-            --latest \
-            .var/dist/*
+            --verify-tag \
+            --latest
 
-  # Job 9: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
-  publish-testpypi:
-    needs: [ publish-github-release, build-check ]
-    if: |
-      always() &&
-      needs.publish-github-release.result == 'success' &&
-      needs.build-check.result == 'success' &&
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.release_tag != ''
+  # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  publish-pypi:
+    needs: [ publish-github-release ]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
     runs-on: ubuntu-latest
-
     environment: testpypi
 
     permissions:
+      contents: read
+      attestations: read
       id-token: write
 
     steps:
-      # Step 1: Download package artifacts from the build job
-      - name: Download built packages
-        uses: actions/download-artifact@v8
-        with:
-          name: python-packages
-          path: .var/dist/
-
-      # Step 2: Install uv
+      # Step 1: Install uv
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
           version: "latest"
+
+      # Step 2: Download packets
+      - name: Download Release Artifacts
+        if: ${{ github.repository_owner != 'nektos' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.event.inputs.release_tag }}" \
+          --pattern "*.whl" \
+          --pattern "*.tar.gz" \
+          --dir ".var/dist"
 
       # Step 3: Publish to TestPyPI via uv
       - name: Publish package to TestPyPI via uv
+        if: ${{ github.repository_owner != 'nektos' }}
         run: |
-          uv publish --publish-url https://test.pypi.org/legacy/ .var/dist/*.whl .var/dist/*.tar.gz
+          uv publish --publish-url https://test.pypi.org/legacy/ .var/dist/*
 
-  # Job 10: Build and upload python artifacts directly to PyPI using Trusted Publishing
-  publish-pypi:
-    needs: [ publish-testpypi, build-check ]
-    if: |
-      always() &&
-      needs.publish-testpypi.result == 'success' &&
-      needs.build-check.result == 'success' &&
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.release_tag != ''
-    runs-on: ubuntu-latest
-
-    environment: pypi
-
-    permissions:
-      id-token: write
-
-    steps:
-      # Step 1: Download package artifacts from the build job
-      - name: Download built packages
-        uses: actions/download-artifact@v8
-        with:
-          name: python-packages
-          path: .var/dist/
-
-      # Step 2: Install uv
-      - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: true
-          version: "latest"
-
-      # Step 3: Publish to TestPyPI via OIDC token exchange (no passwords/tokens needed!)
-      - name: Publish package to PyPI via uv
+      # Step 4: Publish to PyPI via uv
+      - name: Publish package to TestPyPI via uv
+        if: ${{ github.repository_owner != 'nektos' }}
         run: |
-          uv publish .var/dist/*.whl .var/dist/*.tar.gz
+          uv publish .var/dist/*

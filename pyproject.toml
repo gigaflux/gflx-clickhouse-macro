@@ -101,6 +101,7 @@ commit = true
 commit_args = "-s"
 tag = false
 push = true
+pre_commit_hook = "scripts/pre-bump.sh"
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
@@ -132,12 +133,16 @@ markers = [
     "xdist_group: serial_db"
 ]
 filterwarnings = [
-    "ignore::urllib3.exceptions.InsecureRequestWarning"
+    "ignore::urllib3.exceptions.InsecureRequestWarning",
+    "ignore:Failed to generate report:pytest_cov.plugin.CovReportWarning"
 ]
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["*/__init__.py"]
+omit = [
+    "*/__init__.py"
+]
+disable_warnings = ["no-data-collected", "module-not-imported"]
 relative_files = true
 
 [tool.coverage.report]
