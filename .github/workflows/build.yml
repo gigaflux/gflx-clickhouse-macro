@@ -329,7 +329,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+           ref: ${{ github.ref_name }}
 
       # Step 2: Setup uv
       - name: Set up uv
@@ -375,7 +375,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ github.ref_name }}
 
       # Step 2: Download package artifacts from the build job
       - name: Download built packages
