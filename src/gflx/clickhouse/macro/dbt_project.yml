@@ -1,4 +1,4 @@
 name: "gflx_clickhouse_macro"
-version: "0.2.2"
+version: "0.2.4"
 config-version: 2
 macro-paths: ["macros"]
