@@ -311,9 +311,7 @@ jobs:
           UV_PYTHON: "3.12"
         run: |
           TAG_VERSION="$(echo "${{ github.event.inputs.release_tag }}" | sed 's/^v//')"
-          if uv run --group dev-release bumpver update --set-version "$TAG_VERSION" --dry-run > /dev/null 2>&1; then
-            uv run --group dev-release bumpver update --set-version "$TAG_VERSION"
-          fi
+          uv run --group dev-release bumpver update --set-version "$TAG_VERSION"
 
   # Job 7: Build python package
   build-check:
@@ -429,6 +427,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release download "${{ github.event.inputs.release_tag }}" \
+          --repo "${{ github.repository }}" \
           --pattern "*.whl" \
           --pattern "*.tar.gz" \
           --dir ".var/dist"
