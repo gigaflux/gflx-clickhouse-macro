@@ -328,6 +328,8 @@ jobs:
       # Step 1: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+           ref: ${{ github.ref_name }}
 
       # Step 2: Setup uv
       - name: Set up uv
@@ -372,6 +374,8 @@ jobs:
       # Step 1: Fetch the repository source code
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
 
       # Step 2: Download package artifacts from the build job
       - name: Download built packages
@@ -397,8 +401,8 @@ jobs:
             --verify-tag \
             --latest
 
-  # Job 9: Build and upload python artifacts directly to PyPI using Trusted Publishing
-  publish-pypi:
+  # Job 9: Build and upload python artifacts directly to TestPyPI using Trusted Publishing
+  publish-testpypi:
     needs: [ publish-github-release ]
     if: |
       always() &&
@@ -438,8 +442,43 @@ jobs:
         run: |
           uv publish --publish-url https://test.pypi.org/legacy/ .var/dist/*
 
-      # Step 4: Publish to PyPI via uv
-      - name: Publish package to TestPyPI via uv
+  # Job 10: Build and upload python artifacts directly to PyPI using Trusted Publishing
+  publish-pypi:
+    needs: [ publish-testpypi ]
+    if: |
+      always() &&
+      needs.publish-testpypi.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    permissions:
+      contents: read
+      attestations: read
+      id-token: write
+
+    steps:
+      # Step 1: Install uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          version: "latest"
+
+      # Step 2: Download packets
+      - name: Download Release Artifacts
+        if: ${{ github.repository_owner != 'nektos' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.event.inputs.release_tag }}" \
+          --repo "${{ github.repository }}" \
+          --pattern "*.whl" \
+          --pattern "*.tar.gz" \
+          --dir ".var/dist"
+
+      # Step 3: Publish to PyPI via uv
+      - name: Publish package to PyPI via uv
         if: ${{ github.repository_owner != 'nektos' }}
         run: |
           uv publish .var/dist/*
