@@ -197,6 +197,7 @@ jobs:
   security-scan:
     needs: [ tests-passed, changes ]
     if: |
+      always() &&
       needs.tests-passed.result == 'success' &&
       !contains(needs.changes.result, 'failure') &&
       !contains(needs.changes.result, 'cancelled')
