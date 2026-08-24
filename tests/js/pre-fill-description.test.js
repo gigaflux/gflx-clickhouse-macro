@@ -60,7 +60,7 @@ describe("pre-fill-description script", () => {
     };
   });
 
-  it("should fetch commits, format them, and inject history into ## Description section", async () => {
+  it("should fetch commits, format them, and inject history with markers into ## Description section", async () => {
     // Execute the script under test
     await preFillDescription(/** @type {any} */ ({ github: mockGithub, context: mockContext }));
 
@@ -74,12 +74,21 @@ describe("pre-fill-description script", () => {
     const expectedHistory =
       "* feat: add clickhouse macro (by @test)\n" + "* fix: escape macro queries (by @local)";
 
+    const expectedBody =
+      "## Description\n" +
+      "<!-- START_COMMIT_HISTORY -->\n" +
+      "<!-- Automatically gathered commit history. Feel free to adapt or rewrite: -->\n" +
+      "### Commit History:\n" +
+      `${expectedHistory}\n` +
+      "<!-- END_COMMIT_HISTORY -->\n" +
+      "Initial PR description text goes here.";
+
     // Verify that the PR update method was triggered with the properly injected Markdown history
     expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
       owner: "gigaflux",
       repo: "gflx-clickhouse-macro",
       pull_number: 101,
-      body: `## Description\n<!-- Automatically gathered commit history. Feel free to adapt or rewrite: -->\n### Commit History:\n${expectedHistory}\n\nInitial PR description text goes here.`,
+      body: expectedBody,
     });
   });
 
@@ -97,6 +106,35 @@ describe("pre-fill-description script", () => {
       repo: "gflx-clickhouse-macro",
       pull_number: 101,
       body: "Just some text without required standard section header.",
+    });
+  });
+
+  it("should replace old history block with new commits if markers are already present (synchronize event)", async () => {
+    mockGithub.rest.pulls.get.mockResolvedValue({
+      data: {
+        body: "## Description\n<!-- START_COMMIT_HISTORY -->\n* old commit (by @user)\n<!-- END_COMMIT_HISTORY -->\nInitial PR description text goes here.",
+      },
+    });
+
+    await preFillDescription(/** @type {any} */ ({ github: mockGithub, context: mockContext }));
+
+    const expectedHistory =
+      "* feat: add clickhouse macro (by @test)\n" + "* fix: escape macro queries (by @local)";
+
+    const expectedBody =
+      "## Description\n" +
+      "<!-- START_COMMIT_HISTORY -->\n" +
+      "<!-- Automatically gathered commit history. Feel free to adapt or rewrite: -->\n" +
+      "### Commit History:\n" +
+      `${expectedHistory}\n` +
+      "<!-- END_COMMIT_HISTORY -->\n" +
+      "Initial PR description text goes here.";
+
+    expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
+      owner: "gigaflux",
+      repo: "gflx-clickhouse-macro",
+      pull_number: 101,
+      body: expectedBody,
     });
   });
 });

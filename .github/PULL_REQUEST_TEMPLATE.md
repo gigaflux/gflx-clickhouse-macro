@@ -29,7 +29,7 @@
 
 ## 🚨 Breaking Changes?
 - [ ] Yes (change that would cause existing functionality not to work as expected)
-- [ ] No
+- [x] No
 
 <!-- 💡 If you checked "Yes", please make sure to add an exclamation mark to your PR title, e.g., feat!: breaking change description -->
 
