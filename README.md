@@ -8,7 +8,6 @@ ClickHouse macros library. Enhance your ClickHouse SQL workflows using Jinja2 te
 
 ---
 
-
 ## Features
 
 - **Jinja2 Templating**: Dynamic ClickHouse SQL generation using a powerful text template engine.
