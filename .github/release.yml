@@ -1,0 +1,57 @@
+changelog:
+  sort-by: highest-priority
+  categories:
+    - title: '🛡️ Security Updates'
+      description: 'Fixes vulnerabilities, updates sensitive permissions, or patches security flaws.'
+      labels:
+        - '🛡 sec'
+        - '🛡️ security'
+
+    - title: '🚀 Features'
+      description: 'All new functionalities and user-facing capabilities.'
+      labels:
+        - '🚀 feat'
+        - '🚀 feature'
+        - '🚀 enhance'
+        - '🚀 enhancement'
+
+    - title: '🐞 Bug Fixes'
+      description: 'Resolves an existing issue, error, or unexpected behavior.'
+      labels:
+        - '🐞 fix'
+        - '🐞 bug'
+        - '🐞 bugfix'
+        - '⏪ revert'
+
+    - title: '⚡ Performance Improvements'
+      description: 'Code changes that improve speed, memory usage, or resource consumption.'
+      labels:
+        - '⚡ perf'
+        - '⚡ performance'
+
+    - title: '📝 Documentation'
+      description: 'Updates to code comments, guides, or repository README.'
+      labels:
+        - '📝 docs'
+        - '📝 doc'
+        - '📝 documentation'
+
+    - title: '⚙️ Maintenance, Tooling & Dependencies'
+      description: 'Updates to CI/CD, dependencies, refactoring, tests, and other background changes.'
+      labels:
+        - '🤖 ci'
+        - '🤖 cicd'
+        - '🧪 test'
+        - '📦 build'
+        - '📦 dep'
+        - '📦 deps'
+        - '📦 dependencies'
+        - '🎨 style'
+        - '♻️ refactor'
+        - '⚙️ chore'
+
+  exclude:
+    contributors:
+      - "github-actions[bot]"
+      - "dependabot[bot]"
+      - "gigaflux-release-bot[bot]"

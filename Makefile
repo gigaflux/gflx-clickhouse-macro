@@ -47,7 +47,7 @@ define CLEAR_DEEP_CACHE
 endef
 endif
 
-.PHONY: install init-dev lint lint-all format test-unit test-integration test-github scan check build run release-patch release-minor release-major clean
+.PHONY: install init-dev lint lint-all lint-js format test-unit test-integration test-github scan check build run release-patch release-minor release-major clean
 
 install:
 	uv sync --group dev-lint --group dev-test --group dev-release
@@ -68,6 +68,17 @@ lint:
 lint-all:
 	$(PRECOMMIT) run --hook-stage pre-commit --all-files
 
+# Java script linter
+lint-js:
+	@if ! npx eslint .github/workflows/scripts/**/*.js tests/js/**/*.js --fix; then \
+		npx eslint .github/workflows/scripts/**/*.js tests/js/**/*.js --fix; \
+		echo -e "\u267B\uFE0F ESLint auto-fixed some issues."; \
+	fi
+	@if ! npx prettier --check .github/workflows/scripts/**/*.js tests/js/**/*.js; then \
+		npx prettier --write .github/workflows/scripts/**/*.js tests/js/**/*.js; \
+		echo -e "\u267B\uFE0F Prettier auto-formatted code."; \
+	fi
+
 # Auto-format Python code and Markdown files (with GFM plugin support)
 format:
 	$(RUFF) format
@@ -76,6 +87,7 @@ format:
 # Run unit tests with coverage based on pytest.ini settings
 test-unit:
 	$(PYTEST) $(TEST_UNIT_DIR)
+	npx jest --passWithNoTests
 
 # Run integration tests skipping code coverage calculations
 test-integration:

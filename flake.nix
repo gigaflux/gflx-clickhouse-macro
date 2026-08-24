@@ -34,6 +34,7 @@
             pkgs.gh       # Official GitHub CLI tool for managing releases and pull requests
             pkgs.uv       # Extremely fast Python package installer and resolver
             pkgs.act      # Run your GitHub Actions workflows locally inside Docker containers
+            pkgs.nodejs_24 # Node.js 24 runtime required for GitHub Scripts development
           ];
 
           # Bash commands executed automatically immediately upon entering the shell
@@ -45,6 +46,11 @@
             # Automatically initialize or sync the virtual environment using uv
             make init-dev
             echo -e "\u2713 Python virtual environment (.venv) successfully activated!"
+            echo "========================================================="
+
+            echo -e "\U0001F4E6 Syncing npm packages ..."
+            npm install --include=dev --prefer-offline --no-audit --no-fund --ignore-scripts --fetch-timeout=300000 --fetch-retry-maxtimeout=300000
+            echo -e "\u2713 npm packages synced"
             echo "========================================================="
           '';
         };

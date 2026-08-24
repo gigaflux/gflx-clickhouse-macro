@@ -1,30 +1,133 @@
 # Docs, Examples
-{docs/*,examples/*,*.ipynb} linguist-documentation
+**/docs/** linguist-documentation
+**/examples/** linguist-documentation
+**/*.ipynb linguist-documentation
 
 # Text files
 * text=auto
-*.{md,rst} text eol=lf
-*.{json,yaml,yml,xml,toml,ini} text eol=lf
-*.{sh,bash,py} text eol=lf
-*.{sql,j2,jinja,jinja2} text eol=lf
-*.{txt,csv,tsv,log} text eol=lf
-{Makefile,Dockerfile} text eol=lf
-.{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} text eol=lf
-.pre-commit-*.{yaml,yml} text eol=lf
-{flake.nix,flake.lock,nix.conf} text eol=lf
-uv.lock text eol=lf
+
+**/*.md text eol=lf
+**/*.rst text eol=lf
+
+**/*.json text eol=lf
+**/*.yaml text eol=lf
+**/*.yml text eol=lf
+**/*.xml text eol=lf
+**/*.toml text eol=lf
+**/*.ini text eol=lf
+
+**/*.sh text eol=lf
+**/*.bash text eol=lf
+**/*.py text eol=lf
+**/*.js text eol=lf
+**/*.ts text eol=lf
+
+**/*.sql text eol=lf
+**/*.j2 text eol=lf
+**/*.jinja text eol=lf
+**/*.jinja2 text eol=lf
+
+**/*.txt text eol=lf
+**/*.csv text eol=lf
+**/*.tsv text eol=lf
+**/*.log text eol=lf
+
+**/Makefile text eol=lf
+**/Dockerfile text eol=lf
+
+**/.editorconfig text eol=lf
+.gitattributes text eol=lf
+**/.gitconfig text eol=lf
+**/.git-blame-ignore-revs text eol=lf
+**/.mailmap text eol=lf
+**/.gitmodules text eol=lf
+**/.gitignore text eol=lf
+**/.codespellignorelines text eol=lf
+**/.dockerignore text eol=lf
+**/.cursorignore text eol=lf
+**/.cursorindexingignore text eol=lf
+**/.env text eol=lf
+**/.env.example text eol=lf
+**/.bash_completion text eol=lf
+**/.prettierrc text eol=lf
+
+**/.pre-commit-config.yaml text eol=lf
+**/.pre-commit-config.yml text eol=lf
+
+**/flake.nix text eol=lf
+**/flake.lock text eol=lf
+**/nix.conf text eol=lf
+**/uv.lock text eol=lf
 
 # Ignore files while build release archive
-.{editorconfig,gitattributes,gitconfig,git-blame-ignore-revs,mailmap,gitmodules,gitignore,codespellignorelines,dockerignore,cursorignore,cursorindexingignore,env,env.example,bash_completion} export-ignore
-.{pre-commit-*,markdownlint,gitpod,readthedocs,hadolint,cherry_picker}.* export-ignore
-.{idea,vscode,var,github,tox,pytest_cache,ruff_cache,mypy_cache,htmlcov,nixconfig,nix-node,direnv}/ export-ignore
-{Makefile,trivy*.yml,uv.lock,flake.nix,flake.lock} export-ignore
-{pytest.ini,tox.ini,conftest.py,coverage.xml,mypy.ini,ruff.toml,.coverage} export-ignore
-tests/ export-ignore
+
+**/.editorconfig export-ignore
+.gitattributes export-ignore
+**/.gitconfig export-ignore
+**/.git-blame-ignore-revs export-ignore
+**/.mailmap export-ignore
+**/.gitmodules export-ignore
+**/.gitignore export-ignore
+**/.codespellignorelines export-ignore
+**/.dockerignore export-ignore
+**/.cursorignore export-ignore
+**/.cursorindexingignore export-ignore
+**/.env export-ignore
+**/.env.example export-ignore
+**/.bash_completion export-ignore
+**/coverage.xml export-ignore
+**/.coverage export-ignore
+
+# IDE configs and local development caches
+**/.idea export-ignore
+**/.vscode export-ignore
+**/.var export-ignore
+**/.github export-ignore
+**/.tox export-ignore
+**/.pytest_cache export-ignore
+**/.ruff_cache export-ignore
+**/.mypy_cache export-ignore
+**/.nixconfig export-ignore
+**/htmlcov export-ignore
+**/nix-node export-ignore
+**/.direnv export-ignore
+**/.prettierrc export-ignore
+**/eslint.config.js export-ignore
 
 # Binary files
-*.{mp4,mkv,mov,avi,webm,mp3,wav,flac,m4a,aac} -text diff=binary merge=binary
-*.{gz,gzip,zip,rar,7z,tar,tgz,bz2,xz,iso} -text diff=binary merge=binary
-*.{a,exe} -text diff=binary merge=binary
-*.{db,sqlite} -text diff=binary merge=binary
-*.{pdf,doc,docx,docm,xls,xlsx,xlsm,xlsb} -text diff=binary merge=binary
+**/*.mp4 -text diff=binary merge=binary
+**/*.mkv -text diff=binary merge=binary
+**/*.mov -text diff=binary merge=binary
+**/*.avi -text diff=binary merge=binary
+**/*.webm -text diff=binary merge=binary
+**/*.mp3 -text diff=binary merge=binary
+**/*.wav -text diff=binary merge=binary
+**/*.flac -text diff=binary merge=binary
+**/*.m4a -text diff=binary merge=binary
+**/*.aac -text diff=binary merge=binary
+
+**/*.gz -text diff=binary merge=binary
+**/*.gzip -text diff=binary merge=binary
+**/*.zip -text diff=binary merge=binary
+**/*.rar -text diff=binary merge=binary
+**/*.7z -text diff=binary merge=binary
+**/*.tar -text diff=binary merge=binary
+**/*.tgz -text diff=binary merge=binary
+**/*.bz2 -text diff=binary merge=binary
+**/*.xz -text diff=binary merge=binary
+**/*.iso -text diff=binary merge=binary
+
+**/*.a -text diff=binary merge=binary
+**/*.exe -text diff=binary merge=binary
+
+**/*.db -text diff=binary merge=binary
+**/*.sqlite -text diff=binary merge=binary
+
+**/*.pdf -text diff=binary merge=binary
+**/*.doc -text diff=binary merge=binary
+**/*.docx -text diff=binary merge=binary
+**/*.docm -text diff=binary merge=binary
+**/*.xls -text diff=binary merge=binary
+**/*.xlsx -text diff=binary merge=binary
+**/*.xlsm -text diff=binary merge=binary
+**/*.xlsb -text diff=binary merge=binary

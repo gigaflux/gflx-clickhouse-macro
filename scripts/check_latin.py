@@ -40,16 +40,33 @@ def main() -> None:
 
     # Folders to completely skip during layout analysis
     ignored_paths = {
-        ".git", ".var", ".idea", ".vscode", ".venv",
-        ".ruff_cache", ".DS_Store", "__pycache__", ".pytest_cache", ".coverage"}
+        ".git/",
+        ".var/",
+        ".idea/",
+        ".vscode/",
+        ".venv/",
+        ".ruff_cache/",
+        ".pytest_cache/",
+        ".coverage",
+        "node_modules/",
+        "README.md",
+        ".github/",
+        "tests/js/",
+        "__pycache__/",
+        ".DS_Store"
+    }
+
 
     root = pathlib.Path(".")
     for path in root.rglob("*"):
         # Ensure we are dealing with a file, not a directory
         if path.is_file():
-            # Check if any part of the file path belongs to an ignored directory
-            # (e.g., skips '.var/dist/package.whl' or '.git/config')
-            if any(part in ignored_paths for part in path.parts):
+            rel_path_str = path.relative_to(root).as_posix()
+            if (
+                "__pycache__/" in rel_path_str
+                or path.name == ".DS_Store"
+                or any(rel_path_str.startswith(ignored) for ignored in ignored_paths)
+            ):
                 continue
 
             if check_file_characters(path, allowed_bytes):
