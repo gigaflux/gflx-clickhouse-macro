@@ -49,7 +49,7 @@ jobs:
       - name: Validate PR Title
         id: validate_title
         if: ${{ !contains(github.actor, 'bot') && !env.ACT }}
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -67,7 +67,6 @@ jobs:
             style
             refactor
             chore
-            break
           requireScope: false
 
       # Step 5. Comment on PR if Title is Invalid
