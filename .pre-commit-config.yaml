@@ -130,6 +130,8 @@ repos:
         stages:
           - pre-commit
         entry: uv run --group dev-lint codespell
+        exclude: ^package-lock\.json$
+        args: [-L, "ure,ment"]
         language: system
         types: [ text ]
         pass_filenames: true
@@ -151,6 +153,15 @@ repos:
         language: system
         files: (?:^|/)Makefile$|\.mk$
         pass_filenames: true
+
+      - id: js-linter
+        name: Javascript Linter
+        stages:
+          - pre-commit
+        entry: make lint-js
+        language: system
+        files: (?:^.github/workflows/scripts/|^tests/js/).+\.js$
+        pass_filenames: false
 
       - id: github-linter
         name: GitHub Actions Linter (actionlint)
@@ -197,7 +208,7 @@ repos:
         pass_filenames: true
 
       - id: test-unit
-        name: Run Unit Tests (pytest)
+        name: Run Unit Tests (pytest, jest)
         stages:
           - pre-push
         entry: make test-unit

@@ -5,45 +5,9 @@ import subprocess
 import uuid
 from collections.abc import Generator
 from pathlib import Path
-from typing import cast
 
 import pytest
 
-
-def remove_step_from_job(
-    workflow_data: dict[str, object], job_id: str, step_name: str
-) -> dict[str, object]:
-    """Removes a specific step from a GitHub Actions job based on the step's name.
-
-    Args:
-        workflow_data: The entire GitHub Actions workflow file parsed into a
-            dictionary.
-        job_id: The identifier (key) of the target job in the workflow YAML
-            (e.g., 'security-scan').
-        step_name: The exact value of the 'name' field of the step to be
-            removed.
-
-    Returns:
-        The modified workflow dictionary with the matching step removed.
-
-    Raises:
-        TypeError: If workflow_dict is not a dictionary.
-    """
-    jobs = cast(dict[str, dict[str, object]], workflow_data.get("jobs", {}))
-    if job_id not in jobs:
-        return workflow_data
-    target_job = jobs[job_id]
-    steps = cast(list[dict[str, object]], target_job.get("steps", []))
-
-    if not steps:
-        return workflow_data
-
-    fixed_steps = [step for step in steps if step.get("name") != step_name]
-
-    if len(steps) != len(fixed_steps):
-        target_job["steps"] = fixed_steps
-
-    return workflow_data
 
 @pytest.fixture
 def setup_test_repo() -> Generator[dict[str, object], None, None]:
@@ -55,6 +19,8 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
     git_path = shutil.which("git") # type: ignore[attr-defined]
     act_path = shutil.which("act")  # type: ignore[attr-defined]
     rsync_path = shutil.which("rsync")  # type: ignore[attr-defined]
+    uv_path = shutil.which("uv")  # type: ignore[attr-defined]
+    npm_path = shutil.which("npm")  # type: ignore[attr-defined]
 
     if not git_path:
         pytest.fail("The git executable was not found in the current environment PATH.")
@@ -62,11 +28,16 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
         pytest.fail("The act executable was not found in the current environment PATH.")
     if not rsync_path:
         pytest.fail("The rsync executable was not found in the current environment PATH.")
+    if not uv_path:
+        pytest.fail("The uv executable was not found in the current environment PATH.")
+    if not npm_path:
+        pytest.fail("The npm executable was not found in the current environment PATH.")
 
     current_env = os.environ.copy()
     user_home = os.path.expanduser("~")
     user_docker_socket = Path(user_home) / ".docker/run/docker.sock"
     system_docker_socket = Path("/var/run/docker.sock")
+
 
     if "DOCKER_HOST" not in current_env:
         if user_docker_socket.exists():
@@ -86,6 +57,11 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
     root_dir = Path(__file__).resolve().parent.parent.parent
     test_repo_base = root_dir / ".var" / uuid.uuid4().hex[:8]
     test_repo_dir = test_repo_base / root_dir.name
+
+    act_artifacts_path= root_dir / ".var" / ".act-artifacts"
+    act_cache_path = root_dir / ".var" / ".act-cache"
+    Path(act_artifacts_path).mkdir(parents=True, exist_ok=True)
+    Path(act_cache_path).mkdir(parents=True, exist_ok=True)
 
     if test_repo_base.exists():
         shutil.rmtree(test_repo_base, ignore_errors=True)
@@ -120,6 +96,7 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
 
     event_file = test_repo_dir / ".var" / "event.json"
     event_file.parent.mkdir(parents=True, exist_ok=True)
+
     yield {
         "path": test_repo_dir.resolve(),
         "git_path": Path(git_path),
@@ -127,6 +104,8 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
         "env": current_env,
         "event_file": Path(event_file),
         "event_data": {
+            "action": "opened",
+            "number": 42,
             "repository_owner": "nektos",
             "repository": {
                 "name": str(test_repo_dir.name),
@@ -140,7 +119,32 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
             "deleted": False,
             "forced": False,
             "pusher": {"name": "CI Tester", "email": "tester@example.com"},
-            "inputs": {"release_tag": "v100.0.0-draft"},
+            "inputs": {"release_tag": "v100.0.0"},
+            "pull_request": {
+                "number": 42,
+                "title": "feat(clickhouse): add custom macro support",
+                "user": {"login": "nektos", "id": 123456, "type": "User"},
+                "body": "## Description\nTesting local github actions workflow via act tool.",
+                "head": {
+                    "ref": "feat/macro-support",
+                    "sha": "0000000000000000000000000000000000000000",
+                    "repo": {"id": 987654, "name": "gflx-clickhouse-macro", "owner": {"login": "nektos", "id": 123456}},
+                },
+                "base": {
+                    "ref": "main",
+                    "sha": "0000000000000000000000000000000000000000",
+                    "repo": {
+                        "id": 987654,
+                        "name": "gflx-clickhouse-macro",
+                        "owner": {"login": "nektos", "id": 123456},
+                    },
+                },
+            },
+            "sender": {"login": "nektos", "id": 123456, "type": "User"},
+            "mock_commits": [
+                {"commit": {"message": "feat: add clickhouse macro"}, "author": {"login": "nektos"}},
+                {"commit": {"message": "fix: escape macro queries", "author": {"name": "nektos"}}, "author": "nektos"},
+            ],
         },
         "args": [
             "-e",
@@ -161,6 +165,12 @@ def setup_test_repo() -> Generator[dict[str, object], None, None]:
             "python-version:3.12",
             "--pull=false",
             "--rm",
+            "--network",
+            "bridge",
+            "--artifact-server-path",
+            str(act_artifacts_path),
+            "--cache-server-path",
+            str(act_cache_path)
         ],
     }
 

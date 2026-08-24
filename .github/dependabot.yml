@@ -7,23 +7,22 @@ updates:
       interval: "weekly"
       day: "monday"
     labels:
-      - "dependencies"
-      - "python:uv"
+      - '📦 build'
 
     groups:
-      prod-core-group:
+      core:
         patterns:
           - "jinja2*"
           - "typing-extensions*"
           - "pyyaml*"
           - "rich-argparse*"
 
-      prod-data-group:
+      data:
         patterns:
           - "sqlglot*"
           - "clickhouse-connect*"
 
-      dev-lint-group:
+      lint:
         patterns:
           - "pre-commit*"
           - "ruff*"
@@ -37,21 +36,21 @@ updates:
           - "validate-pyproject*"
           - "check-jsonschema*"
 
-      dev-test-group:
+      test:
         patterns:
           - "pytest*"
 
-      dev-release-group:
+      release:
         patterns:
           - "bumpver*"
           - "build*"
           - "twine*"
 
-      dev-scan-group:
+      scan:
         patterns:
           - "trivy*"
 
-      default-group:
+      default:
         patterns:
           - "*"
 
@@ -61,9 +60,19 @@ updates:
       interval: "weekly"
       day: "monday"
     labels:
-      - "dependencies"
-      - "github-actions"
+      - '🤖 ci'
     groups:
-      github:
+      github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - '🤖 ci'
+    groups:
+      github-scripts:
+        patterns: [ "*" ]

@@ -110,3 +110,11 @@ def test_job_publish_pypi(setup_test_repo: dict[str, object]) -> None:
         f.write("\n")
     result = run_act(setup_test_repo, "publish-pypi", "workflow_dispatch")
     assert result.returncode == 0, f"The local CI/CD run failed. Logs:\n{result.stdout}"
+
+def test_job_pr_setup(setup_test_repo: dict[str, object]) -> None:
+    """Test scan job."""
+    repo = cast(Path, setup_test_repo["path"])
+    with open(repo / "Makefile", "a", encoding="utf-8") as f:
+        f.write("\n")
+    result = run_act(setup_test_repo, "pr-setup", "pull_request")
+    assert result.returncode == 0, f"The local CI/CD run failed. Logs:\n{result.stdout}"
