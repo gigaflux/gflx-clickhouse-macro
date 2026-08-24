@@ -6,20 +6,21 @@ on:
 # Restrict permissions for security when handling PRs from external forks
 permissions:
   contents: read
-  pull-requests: write # Required to add labels and post comments
+  pull-requests: write # Required to add labels and post PR updates
+  issues: write        # Required for title validator action to post status checks/comments
 
 jobs:
   pr-setup:
     runs-on: ubuntu-latest
     steps:
-      # Step 0. Checkout repository
+      # Step 0. Checkout repository (pull_request_target checkouts base branch context)
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       # Step 1. AUTOMATICALLY PRE-FILL DESCRIPTION WITH COMMIT HISTORY (Runs only when PR is opened)
       - name: Pre-fill PR Description with Commits
-        if: github.event.action == 'opened' && !endsWith(github.actor, '[bot]')
-        uses: actions/github-script@v9
+        if: ${{ !contains(github.actor, 'bot') }}
+        uses: actions/github-script@v7
         with:
           script: |
             const script = require('./.github/workflows/scripts/pre-fill-description.js');
@@ -28,49 +29,50 @@ jobs:
       # Step 2. Smart handling for Dependabot (separating regular updates from security updates)
       - name: Label Dependabot PRs
         if: github.actor == 'dependabot[bot]'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const script = require('./.github/workflows/scripts/label-dependabot.js');
             await script({ github, context });
 
-      # Step 3. PR Title Validator for real developers (does NOT create unconfigured labels)
+      # Step 3. Automatically manage labels and title based on PR template checkboxes
+      - name: Auto-label PR based on Checkboxes
+        if: ${{ !contains(github.actor, 'bot') && !env.ACT }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const script = require('./.github/workflows/scripts/auto-labeler.js');
+            // CRITICAL FIX: Explicitly pass 'core' context so the script can call core.setFailed()
+            await script({ github, context, core });
+
+      # Step 4. PR Title Validator for real developers (does NOT create unconfigured labels)
       - name: Validate PR Title
         id: validate_title
-        if: ${{ !endsWith(github.actor, '[bot]') && !env.ACT }}
+        if: ${{ !contains(github.actor, 'bot') && !env.ACT }}
         uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           # Permitted prefixes mapped to your labeler.yml and release.yml
           types: |
-            sec(?:urity)?
-            feat(?:ure)?|enhance(?:ment)?
-            fix|bug(?:fix)?
-            revert|undo
-            perf(?:ormance)?
-            doc(?:s|umentation)?
-            ci(?:cd)?
+            sec
+            feat
+            fix
+            revert
+            perf
+            docs
+            ci
             test
-            build|dep(?:endencies)?|deps
-            style|format
+            build
+            style
             refactor
             chore
           requireScope: false
 
-      # Step 4. Automatically add a label based on the PR title prefix (with old labels & comments cleanup)
-      - name: Auto-label PR based on Title
-        if: success() && steps.validate_title.outcome == 'success'
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const script = require('./.github/workflows/scripts/auto-labeler.js');
-            await script({ github, context });
-
       # Step 5. Comment on PR if Title is Invalid
       - name: Comment on PR if Title is Invalid
         if: failure() && steps.validate_title.outcome == 'failure'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const script = require('./.github/workflows/scripts/invalid-title-comment.js');
