@@ -16,12 +16,10 @@ module.exports = async ({ github, context }) => {
 
   // 1. Get all commits in this Pull Request
   if (process.env.ACT) {
-    // 1. Локальный запуск через утилиту act — берем данные из нашего pull_request.json
     const payload = context.payload;
     commits = payload["mock_commits"] || [];
     currentBody = payload["pull_request"]?.["body"] || "";
   } else {
-    // 2. Продакшен режим на реальном сервере GitHub — делаем стандартные сетевые запросы
     const { data: fetchedCommits } = await github.rest.pulls.listCommits({
       owner,
       repo,
@@ -56,15 +54,20 @@ module.exports = async ({ github, context }) => {
     .join("\n");
 
   // 4. Inject the commit history into the ## Description section
+  const startMarker = "<!-- START_COMMIT_HISTORY -->";
+  const endMarker = "<!-- END_COMMIT_HISTORY -->";
   const targetSection = "## Description";
-  if (currentBody.includes(targetSection)) {
-    currentBody = currentBody.replace(
-      targetSection,
-      `${targetSection}\n<!-- Automatically gathered commit history. Feel free to adapt or rewrite: -->\n### Commit History:\n${commitHistory}\n`
-    );
+
+  const newHistoryBlock = `${startMarker}\n<!-- Automatically gathered commit history. Feel free to adapt or rewrite: -->\n### Commit History:\n${commitHistory}\n${endMarker}`;
+
+  if (currentBody.includes(startMarker) && currentBody.includes(endMarker)) {
+    const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
+    currentBody = currentBody.replace(regex, newHistoryBlock);
+  } else if (currentBody.includes(targetSection)) {
+    currentBody = currentBody.replace(targetSection, `${targetSection}\n${newHistoryBlock}`);
   }
 
-  // 5. Update the Pull Request body (тоже оборачиваем в проверку, чтобы локально не спамить в сеть)
+  // 5. Update the Pull Request body
   if (!process.env.ACT) {
     await github.rest.pulls.update({
       owner,

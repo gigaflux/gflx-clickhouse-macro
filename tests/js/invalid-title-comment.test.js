@@ -6,7 +6,7 @@ describe("invalid-title-comment script", () => {
   let mockContext;
 
   beforeEach(() => {
-    // 1. Create structured mock objects for Octokit REST API
+    // 1. Create mock objects for the Octokit REST API
     mockGithub = {
       rest: {
         issues: {
@@ -17,53 +17,45 @@ describe("invalid-title-comment script", () => {
 
     // 2. Create a mock object for the GitHub Actions execution context
     mockContext = {
-      issue: { number: 404 },
       repo: { owner: "gigaflux", repo: "gflx-clickhouse-macro" },
       payload: {
-        // Simulate a webhook payload from a PR opened by a specific user
         pull_request: {
-          user: {
-            login: "contrib-developer",
-          },
+          number: 303,
+          user: { login: "contributor_jack" },
         },
       },
     };
   });
 
-  it("should generate a validation message and post a comment mentioning the PR author", async () => {
+  it("should successfully post a formatting guide comment with correct repository metadata", async () => {
     // Execute the script under test
     await invalidTitleComment(/** @type {any} */ ({ github: mockGithub, context: mockContext }));
 
-    // Verify that createComment was called for the correct repository and issue number
+    // Verify that the comment was posted to the correct repository and PR number
     expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith({
       owner: "gigaflux",
       repo: "gflx-clickhouse-macro",
-      issue_number: 404,
-      // Check that the body is a string and contains the correct mention tag of the author
-      body: expect.stringContaining("👋 Hi @contrib-developer!"),
+      issue_number: 303,
+      body: expect.stringContaining("Hi @contributor_jack!"),
     });
 
-    // Verify that the comment mentions Conventional Commits guidelines
-    expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith({
-      owner: "gigaflux",
-      repo: "gflx-clickhouse-macro",
-      issue_number: 404,
-      body: expect.stringContaining("Conventional Commits standard"),
-    });
-  });
+    // Verify that the comment body contains key technical mentions from the guide
+    expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Conventional Commits standard"),
+      })
+    );
 
-  it("should log a message and exit early if no pull_request payload is present", async () => {
-    // Simulate a workflow execution context without a pull request trigger
-    mockContext.payload = {};
-    const originalLog = console.log;
-    console.log = jest.fn();
+    expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Security Update"),
+      })
+    );
 
-    await invalidTitleComment(/** @type {any} */ ({ github: mockGithub, context: mockContext }));
-
-    // Verify that the script terminates without calling the GitHub API
-    expect(mockGithub.rest.issues.createComment).not.toHaveBeenCalled();
-    expect(console.log).toHaveBeenCalledWith("No pull request found in context.");
-
-    console.log = originalLog;
+    expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Breaking Change"),
+      })
+    );
   });
 });
