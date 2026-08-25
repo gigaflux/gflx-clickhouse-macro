@@ -12,8 +12,7 @@
 ## Description
 <!-- Please include a summary of the change and which issue is fixed. -->
 
-
-## 🛠️ Type of Change (please select one):
+## 🛠️ Type of Change:
 - [ ] **🛡️ Security Update** (fixes vulnerabilities, updates sensitive permissions, or patches security flaws)
 - [ ] **🚀 New Feature** (adds new functionality or capability to the system)
 - [ ] **🐞 Bug Fix** (resolves an existing issue, error, or unexpected behavior)
@@ -27,10 +26,8 @@
 - [ ] **♻️ Refactor** (a code change that neither fixes a bug nor adds a feature)
 - [ ] **⚙️ Maintenance** (other changes)
 
-## 🚨 Breaking Changes?
-- [ ] Yes (change that would cause existing functionality not to work as expected)
-- [x] No
-
+## 🚨 Breaking Changes
+- [ ] This PR introduces a breaking change (requires a major version bump)
 <!-- 💡 If you checked "Yes", please make sure to add an exclamation mark to your PR title, e.g., feat!: breaking change description -->
 
 ## ✅ Checklist Before Submitting:
