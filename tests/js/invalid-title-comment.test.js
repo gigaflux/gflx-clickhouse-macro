@@ -27,7 +27,7 @@ describe("invalid-title-comment script", () => {
     };
   });
 
-  it("should successfully post a formatting guide comment with correct repository metadata", async () => {
+  it("should successfully post an ultra-minimal formatting guide comment", async () => {
     // Execute the script under test
     await invalidTitleComment(/** @type {any} */ ({ github: mockGithub, context: mockContext }));
 
@@ -39,19 +39,14 @@ describe("invalid-title-comment script", () => {
       body: expect.stringContaining("Hi @contributor_jack!"),
     });
 
-    // Verify that the comment body contains key technical mentions from the guide
+    // Verify that the comment body contains key technical mentions from your new text
     expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.stringContaining("Conventional Commits standard"),
       })
     );
 
-    expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.stringContaining("Security Update"),
-      })
-    );
-
+    // Verify that the breaking change hint is present
     expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.stringContaining("Breaking Change"),

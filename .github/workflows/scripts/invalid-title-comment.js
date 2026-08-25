@@ -19,24 +19,7 @@ module.exports = async ({ github, context }) => {
   const message = `\uD83D\uDC4B Hi @${user}!
 
 Our project uses automated release notes generation based on PR titles. To proceed, please update your PR title to match the [Conventional Commits standard](https://github.com).
-
-Please edit your PR title using one of the permitted prefixes mapped to your **Type of Change** selection (ensure there is a colon and a space after it):
-
-* \uD83D\uDEE1\uFE0F **Security Update:** \`sec: description\`
-* \uD83D\uDE80 **New Feature:** \`feat: description\`
-* \uD83D\uDC1E **Bug Fix:** \`fix: description\`
-* \u23EA **Revert:** \`revert: description\`
-* \u26A1 **Performance Improvement:** \`perf: description\`
-* \uD83D\uDCDD **Documentation:** \`docs: description\`
-* \uD83E\uDD16 **CI/CD & Tooling:** \`ci: description\`
-* \uD83E\uDDEA **Test:** \`test: description\`
-* \uD83D\uDCE6 **Build System & Dependencies:** \`build: description\`
-* \uD83C\uDFA8 **Style:** \`style: description\`
-* \u267B\uFE0F **Refactor:** \`refactor: description\`
-* \u2699\uFE0F **Maintenance:** \`chore: description\`
-
 \uD83D\uDCA1 _If your change introduces a Breaking Change, add an exclamation mark before the colon, e.g., \`feat!: major breaking update\`_
-
 Once you rename the title, this check will automatically re-run. Thank you for your contribution! \uD83E\uDD1D`;
 
   // Post the comment using the fully stabilized PR number variables
