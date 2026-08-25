@@ -1,5 +1,4 @@
 changelog:
-  sort-by: highest-priority
   categories:
     - title: '🛡️ Security Updates'
       description: 'Fixes vulnerabilities, updates sensitive permissions, or patches security flaws.'
@@ -50,8 +49,12 @@ changelog:
         - '♻️ refactor'
         - '⚙️ chore'
 
+    - title: "💥 Breaking Changes"
+      description: 'PR which introduces a breaking change (requires a major version bump)'
+      labels:
+        - '💥 Breaking Changes'
+
   exclude:
-    contributors:
+    authors:
       - "github-actions[bot]"
-      - "dependabot[bot]"
       - "gigaflux-release-bot[bot]"

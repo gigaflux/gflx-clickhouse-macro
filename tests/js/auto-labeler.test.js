@@ -6,9 +6,9 @@ describe("auto-labeler script", () => {
   let mockContext;
   let mockCore;
 
-  // Exact Unicode constants to match the script mappings perfectly
-  const labelFeature = "\uD83D\uDE80 feature";
-  const labelBugfix = "\uD83D\uDC1E bugfix";
+  // Exact Unicode constants to match the script's short naming convention perfectly
+  const labelFeature = "\uD83D\uDE80 feat";
+  const labelBugfix = "\uD83D\uDC1E fix";
   const labelCi = "\uD83E\uDD16 ci";
   const labelBreaking = "\uD83D\uDEA8 break";
 
@@ -18,6 +18,7 @@ describe("auto-labeler script", () => {
       rest: {
         issues: {
           listLabelsOnIssue: jest.fn().mockResolvedValue({
+            // Mock initial labels on PR with the new short name format
             data: [{ name: labelBugfix }, { name: "custom-user-label" }],
           }),
           removeLabel: jest.fn().mockResolvedValue({}),
@@ -35,9 +36,6 @@ describe("auto-labeler script", () => {
           deleteComment: jest.fn().mockResolvedValue({}),
           createComment: jest.fn().mockResolvedValue({}),
         },
-        pulls: {
-          update: jest.fn().mockResolvedValue({}),
-        },
       },
     };
 
@@ -47,7 +45,7 @@ describe("auto-labeler script", () => {
       payload: {
         pull_request: {
           number: 303,
-          title: "old: original title text",
+          title: "Any manual title text",
           body: "## \uD83D\uDEE0\uFE0F Type of Change\n- [ ] **Security Update**\n- [x] **New Feature**\n- [ ] **Bug Fix**",
           user: { login: "developer_one" },
         },
@@ -61,12 +59,12 @@ describe("auto-labeler script", () => {
   });
 
   it("should add a new label from checkbox, remove the old semantic label, and delete the bot comment", async () => {
-    // Execute the script where 'New Feature' is checked, and 'bugfix' already exists on PR
+    // Execute the script where 'New Feature' is checked, and short 'fix' already exists on PR
     await autoLabeler(
       /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
     );
 
-    // Verify that the old semantic label was successfully removed
+    // Verify that the old short semantic label is successfully removed
     expect(mockGithub.rest.issues.removeLabel).toHaveBeenCalledWith({
       owner: "gigaflux",
       repo: "gflx-clickhouse-macro",
@@ -99,7 +97,6 @@ describe("auto-labeler script", () => {
   });
 
   it("should successfully parse checkbox with uppercase X", async () => {
-    // Simulate a user checking the checkbox with an uppercase 'X'
     mockContext.payload.pull_request.body =
       "## \uD83D\uDEE0\uFE0F Type of Change\n- [X] **CI/CD & Tooling**";
     mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
@@ -108,7 +105,6 @@ describe("auto-labeler script", () => {
       /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
     );
 
-    // Verify that the script extracts the 'ci' label correctly
     expect(mockGithub.rest.issues.addLabels).toHaveBeenCalledWith({
       owner: "gigaflux",
       repo: "gflx-clickhouse-macro",
@@ -118,7 +114,6 @@ describe("auto-labeler script", () => {
   });
 
   it("should create a warning comment and fail the step if no checkboxes are selected", async () => {
-    // Set PR body with no checked options
     mockContext.payload.pull_request.body =
       "## \uD83D\uDEE0\uFE0F Type of Change\n- [ ] **Bug Fix**\n- [ ] **New Feature**";
     mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
@@ -128,98 +123,33 @@ describe("auto-labeler script", () => {
       /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
     );
 
-    // Verify that the bot left a warning comment with full repository context
     expect(mockGithub.rest.issues.createComment).toHaveBeenCalledWith(
       expect.objectContaining({
         owner: "gigaflux",
         repo: "gflx-clickhouse-macro",
         issue_number: 303,
-        body: expect.stringContaining("categorize this change"), // Проверяем чистый кусок текста без Markdown-разметки
+        body: expect.stringContaining("categorize this change"),
       })
     );
 
-    // Verify that the step was explicitly failed to block the merge
     expect(mockCore.setFailed).toHaveBeenCalledWith(
       "Validation failed: No 'Type of Change' was selected in the PR description."
     );
 
-    // Verify that no labels were added or titles updated since it returned early
+    // Verify that no labels were added since it returned early
     expect(mockGithub.rest.issues.addLabels).not.toHaveBeenCalled();
-    expect(mockGithub.rest.pulls.update).not.toHaveBeenCalled();
   });
 
-  it("should update only the type in the title while preserving scope", async () => {
-    // Scenario: User changes checkbox to 'Bug Fix' but the title has a custom scope
-    mockContext.payload.pull_request.title = "feat(clickhouse): migrate layout structure";
+  it("should add a breaking-change label when Breaking Changes section is checked", async () => {
     mockContext.payload.pull_request.body =
-      "## \uD83D\uDEE0\uFE0F Type of Change\n- [x] **Bug Fix**";
+      "## \uD83D\uDEE0\uFE0F Type of Change\n- [x] **Bug Fix**\n\n## Breaking Changes\n- [x] This PR introduces a breaking change";
     mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
 
     await autoLabeler(
       /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
     );
 
-    // Verify that the title was updated to 'fix', but '(clickhouse)' was preserved perfectly
-    expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
-      owner: "gigaflux",
-      repo: "gflx-clickhouse-macro",
-      pull_number: 303,
-      title: "fix(clickhouse): migrate layout structure",
-    });
-  });
-
-  it("should prepend the new type if the original PR title does not have any conventional prefix", async () => {
-    // Scenario: User did not follow conventional commits in the title at all
-    mockContext.payload.pull_request.title = "add missing clickhouse analytical dashboard macro";
-    mockContext.payload.pull_request.body =
-      "## \uD83D\uDEE0\uFE0F Type of Change\n- [x] **New Feature**";
-    mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
-
-    await autoLabeler(
-      /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
-    );
-
-    // Verify that the script cleanly prepends the resolved type prefix to the raw text
-    expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
-      owner: "gigaflux",
-      repo: "gflx-clickhouse-macro",
-      pull_number: 303,
-      title: "feat: add missing clickhouse analytical dashboard macro",
-    });
-  });
-
-  it("should select the highest priority type to build the title when multiple checkboxes are selected", async () => {
-    // Scenario: User checked both 'New Feature' (weight 9) and 'Bug Fix' (weight 11)
-    mockContext.payload.pull_request.title = "chore(core): initial title text";
-    mockContext.payload.pull_request.body =
-      "## \uD83D\uDEE0\uFE0F Type of Change\n- [x] **New Feature**\n- [x] **Bug Fix**";
-    mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
-
-    await autoLabeler(
-      /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
-    );
-
-    // Verify that 'fix' won the priority race over 'feat', keeping the original scope
-    expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
-      owner: "gigaflux",
-      repo: "gflx-clickhouse-macro",
-      pull_number: 303,
-      title: "fix(core): initial title text",
-    });
-  });
-
-  it("should add a breaking-change label and inject '!' into the title when Breaking Changes is set to Yes", async () => {
-    // Scenario: User selects 'Bug Fix' and checks 'Yes' under Breaking Changes section
-    mockContext.payload.pull_request.title = "fix(api): internal query routing";
-    mockContext.payload.pull_request.body =
-      "## \uD83D\uDEE0\uFE0F Type of Change\n- [x] **Bug Fix**\n\n## \uD83D\uDEA8 Breaking Changes\n- [x] Yes\n- [ ] No";
-    mockGithub.rest.issues.listLabelsOnIssue.mockResolvedValue({ data: [] });
-
-    await autoLabeler(
-      /** @type {any} */ ({ github: mockGithub, context: mockContext, core: mockCore })
-    );
-
-    // Verify labels are applied separately (including the new breaking-change label)
+    // Verify labels are applied separately (including the new short breaking label)
     expect(mockGithub.rest.issues.addLabels).toHaveBeenCalledWith({
       owner: "gigaflux",
       repo: "gflx-clickhouse-macro",
@@ -232,14 +162,6 @@ describe("auto-labeler script", () => {
       repo: "gflx-clickhouse-macro",
       issue_number: 303,
       labels: [labelBreaking],
-    });
-
-    // Verify title sync pushes the breaking '!' right after the scope
-    expect(mockGithub.rest.pulls.update).toHaveBeenCalledWith({
-      owner: "gigaflux",
-      repo: "gflx-clickhouse-macro",
-      pull_number: 303,
-      title: "fix(api)!: internal query routing",
     });
   });
 });
