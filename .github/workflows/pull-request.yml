@@ -12,6 +12,7 @@ permissions:
 jobs:
   pr-setup:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.actor, 'bot') }}
     steps:
       # Step 0. Checkout repository (pull_request_target checkouts base branch context)
       - name: Checkout Repository
@@ -19,25 +20,15 @@ jobs:
 
       # Step 1. AUTOMATICALLY PRE-FILL DESCRIPTION WITH COMMIT HISTORY (Runs only when PR is opened)
       - name: Pre-fill PR Description with Commits
-        if: ${{ !contains(github.actor, 'bot') }}
         uses: actions/github-script@v7
         with:
           script: |
             const script = require('./.github/workflows/scripts/pre-fill-description.js');
             await script({ github, context });
 
-      # Step 2. Smart handling for Dependabot (separating regular updates from security updates)
-      - name: Label Dependabot PRs
-        if: github.actor == 'dependabot[bot]'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const script = require('./.github/workflows/scripts/label-dependabot.js');
-            await script({ github, context });
-
-      # Step 3. Automatically manage labels and title based on PR template checkboxes
+      # Step 2. Automatically manage labels and title based on PR template checkboxes
       - name: Auto-label PR based on Checkboxes
-        if: ${{ !contains(github.actor, 'bot') && !env.ACT }}
+        if: ${{ !env.ACT }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -45,10 +36,10 @@ jobs:
             // CRITICAL FIX: Explicitly pass 'core' context so the script can call core.setFailed()
             await script({ github, context, core });
 
-      # Step 4. PR Title Validator for real developers (does NOT create unconfigured labels)
+      # Step 3. PR Title Validator for real developers (does NOT create unconfigured labels)
       - name: Validate PR Title
         id: validate_title
-        if: ${{ !contains(github.actor, 'bot') && !env.ACT }}
+        if: ${{ !env.ACT }}
         uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,7 +60,7 @@ jobs:
             chore
           requireScope: false
 
-      # Step 5. Comment on PR if Title is Invalid
+      # Step 4. Comment on PR if Title is Invalid
       - name: Comment on PR if Title is Invalid
         if: failure() && steps.validate_title.outcome == 'failure'
         uses: actions/github-script@v7
