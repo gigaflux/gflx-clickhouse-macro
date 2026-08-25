@@ -115,7 +115,9 @@ module.exports = async ({ github, context, core }) => {
   const breakingSectionMatch = prBody.match(BREAKING_SECTION_REGEX);
 
   if (breakingSectionMatch) {
+    // CRITICAL FIX: Extract strictly the first element [0] to isolate the section text
     const breakingContent = breakingSectionMatch[0];
+
     if (CHECKED_BOX_EXISTS_REGEX.test(breakingContent)) {
       detectedLabels.push(LABEL_BREAKING);
     }
