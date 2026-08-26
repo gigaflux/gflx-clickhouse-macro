@@ -3,7 +3,8 @@
     table,
     table_local,
     sharding_column,
-    cluster
+    cluster,
+    hash_func="xxh3"
 ) %}
 {#
     Generate a script to create a distributed table
@@ -13,6 +14,7 @@
         table_local (str): local table
         sharding_column (str): sharding column
         cluster (str): cluster name
+        xash_func (str): Hash function
 
     Returns:
         str: create table script
@@ -25,7 +27,7 @@
     {% set local_tbl = table_local %}
 {% endif %}
 CREATE TABLE IF NOT EXISTS {{ table }} ON CLUSTER {{ cluster }} AS {{ table_local }}
-ENGINE = Distributed('{{ cluster }}', '{{ local_db }}', '{{ local_tbl }}', xxh3({{ sharding_column | trim }}))
+ENGINE = Distributed('{{ cluster }}', '{{ local_db }}', '{{ local_tbl }}', {{ hash_func }}({{ sharding_column | trim }}))
 SETTINGS distributed_ddl_output_mode = 'none';
 {%- endmacro %}
 
