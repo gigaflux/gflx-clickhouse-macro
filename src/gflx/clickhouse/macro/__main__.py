@@ -253,6 +253,33 @@ def get_parser() -> ArgumentParser:
         help="Minimum insert block size"
     )
     parser.add_argument(
+        "--max_memory_usage",
+        required=False,
+        type=int,
+        default=80000000000,
+        help="Maximum memory usage"
+    )
+    parser.add_argument(
+        "--max_bytes_before_external_sort",
+        required=False, type=int,
+        default=60000000000,
+        help="Limits the maximum amount of RAM (in bytes) a query can use for sorting data"
+    )
+    parser.add_argument(
+        "--max_bytes_before_external_group_by",
+        required=False,
+        type=int,
+        default=60000000000,
+        help="Limits the maximum amount of RAM (in bytes) a query can use for grouping data",
+    )
+    parser.add_argument(
+        "--hash-func",
+        required=False,
+        type=str,
+        default="xxh3",
+        help="Hash function",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Execute script.",
@@ -265,7 +292,6 @@ def get_parser() -> ArgumentParser:
         help="Database connection URL"
     )
     return parser
-
 
 def parse_args() -> tuple[bool, str, dict[str, str | int | float | bool]]:
     """Parse arguments from sys.argv."""

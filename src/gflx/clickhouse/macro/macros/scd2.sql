@@ -24,6 +24,10 @@
     stage_tmp_prefix="{db_local}.{db}___{table}_STAGE_TMP",
     max_insert_threads=4,
     min_insert_block_size_bytes=1073741824,
+    max_memory_usage=80000000000,
+    max_bytes_before_external_sort=60000000000,
+    max_bytes_before_external_group_by=60000000000,
+    hash_func="xxh3",
     params=none
 ) %}
 {#
@@ -52,8 +56,12 @@
         dict_cluster_shard (str): Dict cluster shard macro
         zk_path (str): Zookeeper template path used by the ReplicatedMergeTree engine
         stage_tmp_prefix (str): Prefix for created temporary tables
-        max_insert_threads (int): Number of insert threads,
-        min_insert_block_size_bytes (int): Minimum insert block size,
+        max_insert_threads (int): Maximum number of insert threads
+        min_insert_block_size_bytes (int): Minimum insert block size
+        max_memory_usage (int): Maximum memory usage
+        max_bytes_before_external_sort (int): Limits the maximum amount of RAM (in bytes) a query can use for sorting data
+        max_bytes_before_external_group_by (int): Limits the maximum amount of RAM (in bytes) a query can use for grouping data
+        hash_func (str): Hash function, for example xxh3, cityHash64, sipHash64
         params (dict): Parameters passed from other macros
 
     Returns:
@@ -85,7 +93,11 @@
     "zk_path": params.zk_path or zk_path,
     "stage_tmp_prefix": params.stage_tmp_prefix or stage_tmp_prefix,
     "max_insert_threads": params.max_insert_threads or max_insert_threads,
-    "min_insert_block_size_bytes": params.min_insert_block_size_bytes or min_insert_block_size_bytes
+    "min_insert_block_size_bytes": params.min_insert_block_size_bytes or min_insert_block_size_bytes,
+    "max_memory_usage": params.max_memory_usage or max_memory_usage,
+    "max_bytes_before_external_sort": params.max_bytes_before_external_sort or max_bytes_before_external_sort,
+    "max_bytes_before_external_group_by": params.max_bytes_before_external_group_by or max_bytes_before_external_group_by,
+    "hash_func": params.hash_func or hash_func
 }) %}
 
 {% set required_fields = ['db', 'table', 'id_struct', 'id', 'sharding_column'] %}
@@ -130,8 +142,12 @@
     "dict_cluster": params.dict_cluster,
     "max_insert_threads": params.max_insert_threads,
     "min_insert_block_size_bytes": params.min_insert_block_size_bytes,
+    "max_memory_usage": params.max_memory_usage,
+    "max_bytes_before_external_sort": params.max_bytes_before_external_sort,
+    "max_bytes_before_external_group_by": params.max_bytes_before_external_group_by,
+    "hash_func": params.hash_func,
     "zk_path": params.zk_path,
-    "stage_tmp_prefix": params.stage_tmp_prefix,
+    "stage_tmp_prefix": params.stage_tmp_prefix
 }) %}
 {% do ctx.update({
     "db_local": render(t_vars.db_local, **ctx),
@@ -206,7 +222,7 @@ SETTINGS distributed_ddl_output_mode = 'none';
 {{ sync_replica(ctx.table_stage_full_local, ctx.replicated_cluster) }}
 
 -- @echo STEP prepare 6/12: Creating distributed stage table
-{{ create_distributed_table(ctx.table_stage_full, ctx.table_stage_full_local, ctx.sharding_column, ctx.replicated_cluster) }}
+{{ create_distributed_table(ctx.table_stage_full, ctx.table_stage_full_local, ctx.sharding_column, ctx.replicated_cluster, ctx.hash_func) }}
 
 -- @echo STEP prepare 7/12: Creating stage hash table
 CREATE TABLE IF NOT EXISTS {{ ctx.table_stage_hash_full_local }} ON CLUSTER {{ ctx.replicated_cluster }} (
@@ -215,7 +231,7 @@ CREATE TABLE IF NOT EXISTS {{ ctx.table_stage_hash_full_local }} ON CLUSTER {{ c
     loaded_at DateTime,
     is_deleted Bool,
     is_closed Bool,
-    attr_hash UInt64, -- xxh3 hash of attributes
+    attr_hash UInt64, -- hash of attributes
     source UInt8 -- 1 - cold, 2 - hot, 3 - buf
 )
 ENGINE = ReplicatedMergeTree('{{ ctx.table_stage_hash_zk }}', '{{ ctx.replicated_cluster_replica }}')
@@ -226,7 +242,7 @@ SETTINGS distributed_ddl_output_mode = 'none';
 {{ sync_replica(ctx.table_stage_hash_full_local, ctx.replicated_cluster) }}
 
 -- @echo STEP prepare 9/12: Creating distributed stage hash table
-{{ create_distributed_table(ctx.table_stage_hash_full, ctx.table_stage_hash_full_local, ctx.sharding_column, ctx.replicated_cluster) }}
+{{ create_distributed_table(ctx.table_stage_hash_full, ctx.table_stage_hash_full_local, ctx.sharding_column, ctx.replicated_cluster, ctx.hash_func) }}
 
 -- @echo STEP prepare 10/12: Creating stage inc table
 CREATE TABLE IF NOT EXISTS {{ ctx.table_stage_inc_full_local }} ON CLUSTER {{ ctx.replicated_cluster }} (
@@ -242,7 +258,7 @@ SETTINGS distributed_ddl_output_mode = 'none';
 {{ sync_replica(ctx.table_stage_inc_full_local, ctx.replicated_cluster) }}
 
 -- @echo STEP prepare 12/12: Creating distributed stage inc table
-{{ create_distributed_table(ctx.table_stage_inc_full, ctx.table_stage_inc_full_local, ctx.sharding_column, ctx.replicated_cluster) }}
+{{ create_distributed_table(ctx.table_stage_inc_full, ctx.table_stage_inc_full_local, ctx.sharding_column, ctx.replicated_cluster, ctx.hash_func) }}
 {%- endmacro %}
 
 
@@ -268,7 +284,7 @@ MAX({{ ctx.start_at }}),
 argMax({{ ctx.loaded_at }}, {{ ctx.start_at }}),
 argMax({{ ctx.is_deleted }}, ({{ ctx.start_at }}, {{ ctx.loaded_at }})),
 argMax({{ ctx.is_closed }}, ({{ ctx.start_at }}, {{ ctx.loaded_at }})),
-argMax(if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, xxh3(tuple(* EXCEPT({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))), ({{ ctx.start_at }}, {{ ctx.loaded_at }})),
+argMax(if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, {{ ctx.hash_func }}(tuple(* EXCEPT({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))), ({{ ctx.start_at }}, {{ ctx.loaded_at }})),
 1
 FROM {{ ctx.table_target_full }} FINAL
 WHERE {{ ctx.is_deleted }} = 0
@@ -284,7 +300,7 @@ parallel_distributed_insert_select = 2,
 min_insert_block_size_rows = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 80000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 -- @echo STEP merge 4/13: Inserting hashes from hot data into hash table
 INSERT INTO {{ ctx.table_stage_hash_full }}
@@ -296,7 +312,7 @@ SELECT
 {{ ctx.loaded_at }},
 {{ ctx.is_deleted }},
 {{ ctx.is_closed }},
-if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, xxh3(tuple(* EXCEPT ({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))) AS h,
+if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, {{ ctx.hash_func }}(tuple(* EXCEPT ({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))) AS h,
 2
 FROM {{ ctx.table_target_full }} FINAL
 WHERE {{ ctx.is_deleted }} = 0
@@ -315,7 +331,7 @@ parallel_distributed_insert_select = 2,
 min_insert_block_size_rows = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 80000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 -- @echo STEP merge 5/13: Inserting hashes from buffer into hash table
 INSERT INTO {{ ctx.table_stage_hash_full }}
@@ -327,7 +343,7 @@ SELECT
 {{ ctx.loaded_at }},
 {{ ctx.is_deleted }},
 {{ ctx.is_closed }},
-if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, xxh3(tuple(* EXCEPT ({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))) AS h,
+if({{ ctx.is_deleted }} = 1 OR {{ ctx.is_closed }} = 1, 0, {{ ctx.hash_func }}(tuple(* EXCEPT ({{ ctx.id }}, {{ ctx.start_at }}, {{ ctx.loaded_at }}, {{ ctx.is_deleted }}, {{ ctx.is_closed }})))) AS h,
 3
 FROM {{ ctx.table_stage_buf_full }}
 WHERE {{ ctx.start_at }} >= merge_at
@@ -342,7 +358,7 @@ parallel_distributed_insert_select = 2,
 min_insert_block_size_rows = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 80000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 -- @echo STEP merge 6/13: Waiting for replication sync on hash table
 {{ sync_replica(ctx.table_stage_hash_full_local, ctx.replicated_cluster) }}
@@ -361,7 +377,7 @@ parallel_distributed_insert_select = 2,
 min_insert_block_size_rows = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 80000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 -- @echo STEP merge 8/13: Waiting for replication sync on inc table
 {{ sync_replica(ctx.table_stage_inc_full_local, ctx.replicated_cluster) }}
@@ -387,7 +403,7 @@ join_algorithm = 'full_sorting_merge',
 max_rows_in_set_to_optimize_join = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 80000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 
 -- @echo STEP merge 10/13: Waiting for replication sync on stage table
@@ -411,10 +427,10 @@ parallel_distributed_insert_select = 2,
 min_insert_block_size_rows = 0,
 max_insert_threads = {{ ctx.max_insert_threads }},
 max_threads = {{ ctx.max_insert_threads }},
-max_bytes_before_external_sort = 80000000000,
-max_bytes_before_external_group_by = 80000000000,
+max_bytes_before_external_sort = {{ ctx.max_bytes_before_external_sort }},
+max_bytes_before_external_group_by = {{ ctx.max_bytes_before_external_group_by }},
 min_insert_block_size_bytes = {{ ctx.min_insert_block_size_bytes }},
-max_memory_usage = 100000000000;
+max_memory_usage = {{ ctx.max_memory_usage }};
 
 -- @echo STEP merge 12/13: Waiting for replication sync on stage table
 {{ sync_replica(ctx.table_stage_full_local, ctx.replicated_cluster) }}

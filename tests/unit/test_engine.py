@@ -131,7 +131,11 @@ def test_engine_render_macro_init(engine_macro: MacroRenderEngine, params: dict[
         "zk_path": "/clickhouse/tables/{db_local}_{shard}/{table}_local",
         "stage_tmp_prefix": "{db_local}.{db}___{table}_STAGE_TMP",
         "max_insert_threads": 4,
-        "min_insert_block_size_bytes": 1073741824
+        "min_insert_block_size_bytes": 1073741824,
+        "max_memory_usage": 80000000000,
+        "max_bytes_before_external_sort": 60000000000,
+        "max_bytes_before_external_group_by": 60000000000,
+        "hash_func": "xxh3"
     }
 
     args = default_params
@@ -167,6 +171,10 @@ def test_engine_render_macro_init(engine_macro: MacroRenderEngine, params: dict[
         "dict_cluster": args["dict_cluster"],
         "max_insert_threads": args["max_insert_threads"],
         "min_insert_block_size_bytes": args["min_insert_block_size_bytes"],
+        "max_memory_usage": args["max_memory_usage"],
+        "max_bytes_before_external_sort": args["max_bytes_before_external_sort"],
+        "max_bytes_before_external_group_by": args["max_bytes_before_external_group_by"],
+        "hash_func": args["hash_func"],
         "zk_path": args["zk_path"],
         "stage_tmp_prefix": args["stage_tmp_prefix"]
     })
