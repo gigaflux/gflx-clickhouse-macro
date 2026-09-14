@@ -75,7 +75,7 @@ jobs:
 
     # Step 1: Install uv, since the Makefile relies on it for environment synchronization
     - name: Set up uv
-      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
         version: "latest"
@@ -138,7 +138,7 @@ jobs:
 
       # Step 1: Install uv, since the Makefile relies on it for environment synchronization
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true # Enable automated caching of downloaded packages to speed up CI runs
           cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
@@ -194,7 +194,7 @@ jobs:
           matrix.os == 'ubuntu-latest' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           github.repository_owner != 'nektos'
-        uses: MishaKav/pytest-coverage-comment@09c28b6767e12a048e0b23e821ed03133ee48a1a # v1.11.0
+        uses: MishaKav/pytest-coverage-comment@432ac90e8d345c93e1d90ee0838b35913abc9c9b # v1.12.2
         with:
           pytest-xml-coverage-path: ./.var/coverage.xml
           title: "\U0001F4CA Code Coverage Report"
@@ -322,7 +322,7 @@ jobs:
 
       # Step 3: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
           version: "latest"
@@ -384,7 +384,7 @@ jobs:
 
       # Step 1: Setup uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
 
@@ -395,7 +395,7 @@ jobs:
       # Step 3: Generate SBOM
       - name: Generate SBOM (SPDX format)
         if: ${{ !env.ACT }}
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           format: spdx-json
           output-file: '.var/dist/sbom.spdx.json'
@@ -469,7 +469,7 @@ jobs:
     steps:
       # Step 0: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "latest"
           enable-cache: false
@@ -511,7 +511,7 @@ jobs:
     steps:
       # Step 0: Install uv
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "latest"
           enable-cache: false
