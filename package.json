@@ -8,10 +8,10 @@
     },
     "devDependencies": {
         "@actions/github-script": "https://github.com/actions/github-script/archive/refs/tags/v9.0.0.tar.gz",
-        "jest": "^30.4.2",
+        "jest": "^30.5.2",
         "@types/jest": "^30.0.0",
-        "eslint": "^10.8.1",
-        "prettier": "^3.9.6"
+        "eslint": "^10.10.0",
+        "prettier": "^3.9.8"
     },
     "overrides": {
         "undici": "^6.27.0"
