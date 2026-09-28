@@ -1224,9 +1224,9 @@ wheels = [
 
 [[package]]
 name = "trivy-py"
-version = "0.71.2"
+version = "0.74.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/64/2b/260a168988fe3ffd963091e80d9f78258b58d63bf26ddfd1bac23491db10/trivy_py-0.71.2.tar.gz", hash = "sha256:dc72423acd5fe20daab1a33fe4e263650074055515bd3daa58f1aa141e24a87c", size = 4317, upload-time = "2026-06-22T07:46:43.883Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/b3/9bd695b7202613e6dca080ec7ca4677cb9260126e0bd096e517f96200f50/trivy_py-0.74.0.tar.gz", hash = "sha256:0a29cc49d89cc1649db5c72d5afeac313b9ed10fa2ece81e3813883a2e412d71", size = 5047, upload-time = "2026-09-25T06:59:51.819Z" }
 
 [[package]]
 name = "trove-classifiers"
